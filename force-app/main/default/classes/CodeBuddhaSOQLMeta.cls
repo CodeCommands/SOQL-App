@@ -71,71 +71,12 @@ public with sharing class CodeBuddhaSOQLMeta {
         Map<String, Object> result = new Map<String, Object>();
         
         try {
-            // Check if user has access to the object first
-            Schema.SObjectType objectType = Schema.getGlobalDescribe().get(sobjectApiName);
-            if (objectType == null) {
-                throw new AuraHandledException('Object not found: ' + sobjectApiName);
-            }
+            Schema.DescribeSObjectResult objectDescribe = validateObjectAccess(sobjectApiName);
             
-            Schema.DescribeSObjectResult objectDescribe = objectType.getDescribe();
-            if (!objectDescribe.isAccessible()) {
-                throw new AuraHandledException('You do not have permission to access this object: ' + sobjectApiName);
-            }
-            
-            Map<String, Schema.SObjectField> fields = objectDescribe.fields.getMap();
-            List<Map<String, Object>> fieldList = new List<Map<String, Object>>();
-            
-            for (String fieldName : fields.keySet()) {
-                Schema.DescribeFieldResult f = fields.get(fieldName).getDescribe();
-                
-                // Only include fields that the user can access
-                if (f.isAccessible()) {
-                    String fieldType = String.valueOf(f.getType()).toLowerCase();
-                    
-                    Map<String, Object> fieldMap = new Map<String, Object>{
-                        'apiName' => f.getName(),
-                        'name' => f.getName(), // lwc-soql-builder uses 'name'
-                        'label' => f.getLabel(),
-                        'type' => fieldType
-                    };
-                    
-                    // Add reference information for lookup fields
-                    if (f.getType() == Schema.DisplayType.REFERENCE && f.getReferenceTo().size() > 0) {
-                        fieldMap.put('referenceTo', new List<String>());
-                        for (Schema.SObjectType refType : f.getReferenceTo()) {
-                            // Only add reference if user has access to the referenced object
-                            Schema.DescribeSObjectResult refDescribe = refType.getDescribe();
-                            if (refDescribe.isAccessible()) {
-                                ((List<String>)fieldMap.get('referenceTo')).add(String.valueOf(refType));
-                            }
-                        }
-                        if (f.getRelationshipName() != null) {
-                            fieldMap.put('relationshipName', f.getRelationshipName());
-                        }
-                    }
-                    
-                    fieldList.add(fieldMap);
-                }
-            }
-            
+            List<Map<String, Object>> fieldList = buildAccessibleFieldList(objectDescribe);
             result.put('fields', fieldList);
             
-            // Child relationships - only include those the user has access to
-            List<Map<String, String>> childRels = new List<Map<String, String>>();
-            for (Schema.ChildRelationship rel : objectDescribe.getChildRelationships()) {
-                if (rel.getRelationshipName() != null) {
-                    // Check if user has access to the child object
-                    Schema.SObjectType childType = rel.getChildSObject();
-                    Schema.DescribeSObjectResult childDescribe = childType.getDescribe();
-                    
-                    if (childDescribe.isAccessible() && childDescribe.isQueryable()) {
-                        childRels.add(new Map<String, String>{
-                            'relationshipName' => rel.getRelationshipName(),
-                            'childSObject' => String.valueOf(rel.getChildSObject())
-                        });
-                    }
-                }
-            }
+            List<Map<String, String>> childRels = buildChildRelationshipList(objectDescribe);
             result.put('childRelationships', childRels);
             
         } catch (Exception e) {
@@ -145,14 +86,86 @@ public with sharing class CodeBuddhaSOQLMeta {
         
         return result;
     }
-
-    @AuraEnabled(cacheable=false)
-    public static List<String> getRecentQueries() {
-        // For demo, just return a static list. In production, store/retrieve from Custom Metadata or Custom Object.
-        return new List<String>{
-            'SELECT Id, Name FROM Account',
-            'SELECT Id, LastName FROM Contact',
-            'SELECT Id, Subject FROM Case'
+    
+    private static Schema.DescribeSObjectResult validateObjectAccess(String sobjectApiName) {
+        Schema.SObjectType objectType = Schema.getGlobalDescribe().get(sobjectApiName);
+        if (objectType == null) {
+            throw new AuraHandledException('Object not found: ' + sobjectApiName);
+        }
+        
+        Schema.DescribeSObjectResult objectDescribe = objectType.getDescribe();
+        if (!objectDescribe.isAccessible()) {
+            throw new AuraHandledException('You do not have permission to access this object: ' + sobjectApiName);
+        }
+        
+        return objectDescribe;
+    }
+    
+    private static List<Map<String, Object>> buildAccessibleFieldList(Schema.DescribeSObjectResult objectDescribe) {
+        Map<String, Schema.SObjectField> fields = objectDescribe.fields.getMap();
+        List<Map<String, Object>> fieldList = new List<Map<String, Object>>();
+        
+        for (String fieldName : fields.keySet()) {
+            Schema.DescribeFieldResult f = fields.get(fieldName).getDescribe();
+            
+            if (f.isAccessible()) {
+                Map<String, Object> fieldMap = buildFieldMap(f);
+                fieldList.add(fieldMap);
+            }
+        }
+        
+        return fieldList;
+    }
+    
+    private static Map<String, Object> buildFieldMap(Schema.DescribeFieldResult f) {
+        String fieldType = String.valueOf(f.getType()).toLowerCase();
+        
+        Map<String, Object> fieldMap = new Map<String, Object>{
+            'apiName' => f.getName(),
+            'name' => f.getName(),
+            'label' => f.getLabel(),
+            'type' => fieldType
         };
+        
+        addReferenceFieldInfo(fieldMap, f);
+        
+        return fieldMap;
+    }
+    
+    private static void addReferenceFieldInfo(Map<String, Object> fieldMap, Schema.DescribeFieldResult f) {
+        if (f.getType() == Schema.DisplayType.REFERENCE && f.getReferenceTo().size() > 0) {
+            fieldMap.put('referenceTo', new List<String>());
+            
+            for (Schema.SObjectType refType : f.getReferenceTo()) {
+                Schema.DescribeSObjectResult refDescribe = refType.getDescribe();
+                if (refDescribe.isAccessible()) {
+                    ((List<String>)fieldMap.get('referenceTo')).add(String.valueOf(refType));
+                }
+            }
+            
+            if (f.getRelationshipName() != null) {
+                fieldMap.put('relationshipName', f.getRelationshipName());
+            }
+        }
+    }
+    
+    private static List<Map<String, String>> buildChildRelationshipList(Schema.DescribeSObjectResult objectDescribe) {
+        List<Map<String, String>> childRels = new List<Map<String, String>>();
+        
+        for (Schema.ChildRelationship rel : objectDescribe.getChildRelationships()) {
+            if (rel.getRelationshipName() != null) {
+                Schema.SObjectType childType = rel.getChildSObject();
+                Schema.DescribeSObjectResult childDescribe = childType.getDescribe();
+                
+                if (childDescribe.isAccessible() && childDescribe.isQueryable()) {
+                    childRels.add(new Map<String, String>{
+                        'relationshipName' => rel.getRelationshipName(),
+                        'childSObject' => String.valueOf(rel.getChildSObject())
+                    });
+                }
+            }
+        }
+        
+        return childRels;
     }
 }

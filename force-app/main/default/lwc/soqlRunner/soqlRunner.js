@@ -5,7 +5,8 @@ import SHEETJS from '@salesforce/resourceUrl/sheetjs';
 import runSOQL from '@salesforce/apex/CodeBuddhaSOQLRunner.runSOQL';
 import getSObjects from '@salesforce/apex/CodeBuddhaSOQLMeta.getSObjects';
 import getSObjectFields from '@salesforce/apex/CodeBuddhaSOQLMeta.getSObjectFields';
-import getRecentQueries from '@salesforce/apex/CodeBuddhaSOQLMeta.getRecentQueries';
+
+/* global XLSX */
 
 export default class SoqlRunner extends LightningElement {
     // Theme
@@ -55,7 +56,6 @@ export default class SoqlRunner extends LightningElement {
 
     connectedCallback() {
         this.loadSObjects();
-        this.loadRecentQueries();
         this.loadSheetJS();
     }
 
@@ -67,10 +67,8 @@ export default class SoqlRunner extends LightningElement {
         loadScript(this, SHEETJS)
             .then(() => {
                 this.sheetJSInitialized = true;
-                console.log('SheetJS loaded successfully');
             })
-            .catch(error => {
-                console.error('Error loading SheetJS:', error);
+            .catch(() => {
                 this.showToast('Error', 'Failed to load export library', 'error');
             });
     }
@@ -97,9 +95,8 @@ export default class SoqlRunner extends LightningElement {
                         class: 'slds-text-align_left'
                     }
                 };
-            } else {
-                return col;
             }
+            return col;
         });
     }
 
@@ -132,16 +129,6 @@ export default class SoqlRunner extends LightningElement {
             });
     }
 
-    loadRecentQueries() {
-        getRecentQueries()
-            .then(data => {
-                this.recentQueries = data;
-            })
-            .catch(() => {
-                this.recentQueries = [];
-            });
-    }
-
     handleSObjectSearch(event) {
         this.sobjectSearch = event.target.value;
         const search = this.sobjectSearch.toLowerCase();
@@ -160,8 +147,6 @@ export default class SoqlRunner extends LightningElement {
         
         getSObjectFields({ sobjectApiName: apiName })
             .then(data => {
-                console.log('Raw field data:', data.fields.slice(0, 5)); // Debug first 5 fields
-                // Process fields similar to lwc-soql-builder
                 this.sobjectFields = data.fields.map(field => {
                     const isReference = field.type === 'reference' || field.referenceTo;
                     return {
@@ -175,7 +160,6 @@ export default class SoqlRunner extends LightningElement {
                         relationshipName: field.relationshipName
                     };
                 });
-                console.log('Processed fields with reference info:', this.sobjectFields.filter(f => !f.isNotReference)); // Debug reference fields
                 this.filteredFields = this.sobjectFields;
                 // Process child relationships with expand state
                 this.sobjectChildRels = data.childRelationships.map(rel => ({
@@ -264,7 +248,6 @@ export default class SoqlRunner extends LightningElement {
         // Find the parent field to get its relationship name
         const parentFieldObj = this.filteredFields.find(f => f.name === parentField);
         if (!parentFieldObj || !parentFieldObj.relationshipName) {
-            console.error('Parent field or relationship name not found:', parentField);
             return;
         }
         
@@ -328,8 +311,7 @@ export default class SoqlRunner extends LightningElement {
                         return f;
                     });
                 })
-                .catch(error => {
-                    console.error('Error loading reference fields:', error);
+                .catch(() => {
                 });
         } else {
             // Just update the expanded state
@@ -390,13 +372,10 @@ export default class SoqlRunner extends LightningElement {
 
     toggleChildRelationship(event) {
         const relationshipName = event.currentTarget.dataset.name;
-        console.log('Toggling relationship:', relationshipName);
         
-        // Find and update the relationship
         this.sobjectChildRels = this.sobjectChildRels.map(rel => {
             if (rel.relationshipName === relationshipName) {
                 const newExpanded = !rel.isExpanded;
-                console.log('Changing expanded from', rel.isExpanded, 'to', newExpanded);
                 
                 const updatedRel = {
                     ...rel,
@@ -406,14 +385,10 @@ export default class SoqlRunner extends LightningElement {
                         '/_slds/icons/utility-sprite/svg/symbols.svg#chevronright'
                 };
                 
-                // Load child object fields when expanding for the first time
                 if (newExpanded && updatedRel.childFields.length === 0) {
-                    console.log('Loading fields for child object:', rel.childSObject);
                     
                     getSObjectFields({ sobjectApiName: rel.childSObject })
                         .then(data => {
-                            console.log('Loaded child fields:', data.fields.length);
-                            // Load ALL fields, not just first 10
                             const childFields = data.fields.map(field => ({
                                 ...field,
                                 isSelected: this.isChildFieldSelected(rel.relationshipName, field.apiName),
@@ -429,9 +404,7 @@ export default class SoqlRunner extends LightningElement {
                                 return r;
                             });
                         })
-                        .catch(error => {
-                            console.error('Error loading child fields:', error);
-                            // Update with empty fields array on error
+                        .catch(() => {
                             this.sobjectChildRels = this.sobjectChildRels.map(r => {
                                 if (r.relationshipName === relationshipName) {
                                     return { ...r, childFields: [] };
@@ -464,9 +437,6 @@ export default class SoqlRunner extends LightningElement {
         const fieldApiName = event.currentTarget.dataset.apiname;
         const relationshipName = event.currentTarget.dataset.relationship;
         
-        console.log('Toggling child field:', fieldApiName, 'in relationship:', relationshipName);
-        
-        // Get or create the field set for this relationship
         if (!this.selectedSubqueries.has(relationshipName)) {
             this.selectedSubqueries.set(relationshipName, new Set());
         }
@@ -534,20 +504,11 @@ export default class SoqlRunner extends LightningElement {
         
         runSOQL({ soql: this.query })
             .then(data => {
-                console.log('Raw SOQL response:', JSON.stringify(data, null, 2));
-                
                 if (data && data.length > 0) {
-                    // Store raw results for child relationship expansion FIRST
-                    this.rawQueryResults = JSON.parse(JSON.stringify(data)); // Deep clone to avoid issues
-                    console.log('Stored raw query results:', this.rawQueryResults);
+                    this.rawQueryResults = JSON.parse(JSON.stringify(data));
                     
-                    // Use the new column collection method based on actual response data
                     const { records, columns } = this.convertQueryResponse(data);
                     
-                    console.log('Converted columns:', columns);
-                    console.log('Converted records:', JSON.stringify(records, null, 2));
-                    
-                    // Create columns for the datatable
                     this.columns = columns.map(field => {
                         return {
                             label: field.replace(/\./g, ' '),
@@ -566,7 +527,6 @@ export default class SoqlRunner extends LightningElement {
                 this.isLoading = false;
             })
             .catch(err => {
-                console.error('SOQL execution error:', err);
                 this.error = err.body && err.body.message ? err.body.message : err.message;
                 this.isLoading = false;
                 this.rawQueryResults = [];
@@ -575,111 +535,68 @@ export default class SoqlRunner extends LightningElement {
 
     // Handle cell click for subquery expansion
     handleCellClick(event) {
-        console.log('Cell click event:', event.detail);
-        
         const { row, rowIndex, fieldName } = event.detail;
         
-        // Check if this is a subquery column
         if (this.isSubqueryColumn(fieldName)) {
-            console.log('Expanding subquery for:', fieldName, 'row:', rowIndex);
             this.expandChildRelationship(rowIndex, fieldName, row);
         }
     }
 
     // Handle row action (for button clicks in datatable)
     handleRowAction(event) {
-        console.log('Row action event:', event.detail);
-        
         const actionName = event.detail.action.name;
         const row = event.detail.row;
         
-        // Use the stored original index if available
         let rowIndex = row._originalIndex;
         
-        // If original index not available, try finding by Id
         if (rowIndex === undefined && row.Id) {
             rowIndex = this.rawQueryResults.findIndex(r => r.Id === row.Id);
         }
         
-        // If still not found, try finding by matching field values
         if (rowIndex === undefined || rowIndex === -1) {
             rowIndex = this.results.findIndex(r => {
                 return Object.keys(row).every(key => {
-                    if (key === '_originalIndex') return true; // Skip internal fields
+                    if (key === '_originalIndex') return true;
                     return r[key] === row[key];
                 });
             });
         }
         
-        console.log('Button clicked:', actionName, 'for row index:', rowIndex);
-        console.log('Row data:', row);
-        console.log('Raw results length:', this.rawQueryResults.length);
-        console.log('Results array length:', this.results.length);
-        
         if (rowIndex !== -1 && rowIndex !== undefined && rowIndex < this.rawQueryResults.length) {
             this.expandChildRelationship(rowIndex, actionName, row);
-        } else {
-            console.error('Could not find valid row index. Row index:', rowIndex);
-            console.error('Row:', row);
-            console.error('Raw results:', this.rawQueryResults);
-            console.error('Processed results:', this.results);
         }
     }
 
     // Expand child relationship data
-    expandChildRelationship(rowIndex, fieldName, row) {
-        console.log('Expanding child relationship:', { rowIndex, fieldName, row });
-        console.log('Raw query results:', this.rawQueryResults);
-        
-        // Validate inputs
+    expandChildRelationship(rowIndex, fieldName) {
         if (rowIndex < 0 || rowIndex >= this.rawQueryResults.length) {
-            console.error('Invalid row index:', rowIndex);
             return;
         }
         
-        // Get the raw data for this row
         const rawRow = this.rawQueryResults[rowIndex];
-        console.log('Raw row data:', rawRow);
         
         if (!rawRow || !rawRow[fieldName]) {
-            console.warn('No child data found for field:', fieldName, 'in row:', rawRow);
             return;
         }
 
         const childData = rawRow[fieldName];
-        console.log('Child data:', childData);
         
-        // Handle both array format and object format
         let childRecords = [];
         if (Array.isArray(childData)) {
             childRecords = childData;
-            console.log('Child data is array with', childRecords.length, 'records');
         } else if (childData.records && Array.isArray(childData.records)) {
             childRecords = childData.records;
-            console.log('Child data has records array with', childRecords.length, 'records');
         } else {
-            console.warn('Child data format not recognized:', typeof childData, childData);
             return;
         }
 
         if (childRecords.length === 0) {
-            console.warn('No child records to display');
             return;
         }
 
-        // Generate columns for child data
         this.childDataTableColumns = this.generateChildColumns(childRecords);
-        console.log('Generated child columns:', this.childDataTableColumns);
-        
-        // Set the child data and title
         this.childRelationshipData = childRecords;
         this.childRelationshipTitle = `${fieldName} (${childRecords.length} records)`;
-        
-        console.log('Child relationship display set:', {
-            title: this.childRelationshipTitle,
-            columns: this.childDataTableColumns,
-            data: this.childRelationshipData
-        });
     }
 
     // Generate columns for child relationship data
@@ -836,9 +753,7 @@ export default class SoqlRunner extends LightningElement {
             });
             
             return { records: convertedRecords, columns };
-        } catch (error) {
-            console.error('Error in convertQueryResponse:', error);
-            // Fallback to simple flattening if column collection fails
+        } catch {
             return this.fallbackConvertResponse(records);
         }
     }    // Fallback method for when column collection fails
@@ -868,26 +783,15 @@ export default class SoqlRunner extends LightningElement {
             
             const newKey = prefix ? `${prefix}.${key}` : key;
             
-            console.log(`Processing field: ${newKey}, value:`, value);
-            
-            // Handle subquery results - check for both patterns:
-            // 1. Objects with totalSize property (when no records or aggregate queries)
-            // 2. Arrays (when there are actual records)
             if (value && Array.isArray(value)) {
-                // This is an array of child records (subquery result)
                 flattened[newKey] = `${value.length} rows`;
-                console.log(`Detected array subquery for ${newKey}: ${value.length} rows`);
             }
             else if (value && typeof value === 'object' && value.totalSize !== undefined) {
-                // This is an object with totalSize (empty subquery result)
                 flattened[newKey] = `${value.totalSize} rows`;
-                console.log(`Detected object subquery for ${newKey}: ${value.totalSize} rows`);
             }
-            // Handle nested objects (relationship fields)
             else if (value && typeof value === 'object' && !Array.isArray(value)) {
                 Object.assign(flattened, this.flattenRecordSimple(value, newKey));
             }
-            // Handle primitive values
             else {
                 flattened[newKey] = value;
             }
@@ -949,8 +853,7 @@ export default class SoqlRunner extends LightningElement {
             
             return allFields;
             
-        } catch (error) {
-            console.warn('Could not parse SOQL query for fields:', error);
+        } catch {
             return [];
         }
     }
@@ -967,49 +870,31 @@ export default class SoqlRunner extends LightningElement {
             this.query = formatted;
             this.showToast('Success', 'SOQL formatted successfully', 'success');
         } catch (error) {
-            console.error('Error formatting SOQL:', error);
             this.showToast('Error', 'Failed to format SOQL: ' + error.message, 'error');
         }
     }
 
     // Simple but effective SOQL formatter
     formatSOQLSimple(query) {
-        console.log('🔧 Original query:', query);
-        
-        // Clean up the query first
         let formatted = query.replace(/\s+/g, ' ').trim();
-        console.log('🔧 Cleaned query:', formatted);
         
-        // Check if it contains SELECT and FROM
         if (!formatted.toUpperCase().includes('SELECT') || !formatted.toUpperCase().includes('FROM')) {
-            console.log('❌ Query does not contain SELECT and FROM');
             throw new Error('Query must contain SELECT and FROM');
         }
         
-        // Format SELECT clause with proper field indentation
-        // Find the last FROM keyword (main query FROM, not subquery FROM)
         const fromIndex = formatted.lastIndexOf(' FROM ');
-        console.log('🔧 FROM index:', fromIndex);
         
         if (fromIndex !== -1) {
             const selectPart = formatted.substring(0, fromIndex);
-            const fromPart = formatted.substring(fromIndex + 6); // Skip " FROM "
+            const fromPart = formatted.substring(fromIndex + 6);
             
-            console.log('🔧 SELECT part:', selectPart);
-            console.log('🔧 FROM part:', fromPart);
-            
-            // Extract fields from SELECT part
             const selectMatch = selectPart.match(/SELECT\s+(.+)$/i);
             if (selectMatch) {
                 const [, fieldsStr] = selectMatch;
                 const fromClause = fromPart;
-                console.log('🔧 Fields string:', fieldsStr);
-                console.log('🔧 FROM clause:', fromClause);
                 
                 const fields = this.splitFields(fieldsStr.trim());
-                console.log('🔧 Split fields:', fields);
                 
-                // Separate regular fields from subqueries
                 const regularFields = [];
                 const subqueryFields = [];
                 
@@ -1022,14 +907,9 @@ export default class SoqlRunner extends LightningElement {
                     }
                 });
                 
-                console.log('🔧 Regular fields:', regularFields);
-                console.log('🔧 Subquery fields:', subqueryFields);
-                
-                // Format regular fields - keep them on same line with commas, but wrap if too long
                 let formattedRegularFields = '';
                 if (regularFields.length > 0) {
                     const fieldsLine = regularFields.join(', ');
-                    // If line is too long (>80 chars), wrap it intelligently
                     if (fieldsLine.length > 80) {
                         formattedRegularFields = this.wrapFieldsIntelligently(regularFields);
                     } else {
@@ -1037,32 +917,24 @@ export default class SoqlRunner extends LightningElement {
                     }
                 }
                 
-                // Format subqueries
                 const formattedSubqueries = subqueryFields.map(field => {
-                    console.log('🔧 Processing subquery field:', field);
-                    return this.formatSubquery(field, false); // Never first field since regular fields come first
+                    return this.formatSubquery(field, false);
                 });
                 
-                // Combine all formatted fields
                 const allFormattedFields = [];
                 if (formattedRegularFields) {
                     allFormattedFields.push(formattedRegularFields);
                 }
                 allFormattedFields.push(...formattedSubqueries);
                 
-                console.log('🔧 All formatted fields:', allFormattedFields);
-                
                 formatted = 'SELECT ' + allFormattedFields.join(',\n') + '\nFROM ' + fromClause.trim();
             } else {
-                console.log('❌ SELECT regex did not match');
                 throw new Error('Could not parse SELECT statement');
             }
         } else {
-            console.log('❌ FROM keyword not found');
             throw new Error('Could not find FROM clause');
         }
         
-        // Format other clauses
         formatted = formatted.replace(/\s+WHERE\s+/gi, '\nWHERE ');
         formatted = formatted.replace(/\s+AND\s+/gi, '\n    AND ');
         formatted = formatted.replace(/\s+OR\s+/gi, '\n    OR ');
@@ -1072,7 +944,6 @@ export default class SoqlRunner extends LightningElement {
         formatted = formatted.replace(/\s+LIMIT\s+/gi, '\nLIMIT ');
         formatted = formatted.replace(/\s+OFFSET\s+/gi, '\nOFFSET ');
         
-        console.log('🔧 Final formatted query:', formatted);
         return formatted.trim();
     }
 
@@ -1239,13 +1110,20 @@ export default class SoqlRunner extends LightningElement {
         this.childRelationshipResults = new Map();
         this.expandedChildRelationships = new Set();
         
+        // Reset left pane to original state
+        this.selectedSObject = null;
+        this.sobjectSearch = '';
+        this.fieldSearch = '';
+        this.showFieldsTab = true;
+        this.showChildRelTab = false;
+        
         // Reset UI
         this.showResults = false;
         this.showChildResults = false;
         this.currentChildRelData = null;
         this.currentChildRelTitle = '';
         
-        this.showToast('Success', 'Query cleared successfully', 'success');
+        this.showToast('Success', 'Query and selection cleared successfully', 'success');
     }
 
     // Dynamic height adjustment from Medium article
@@ -1276,15 +1154,12 @@ export default class SoqlRunner extends LightningElement {
             const hasChildRelationships = this.checkForChildRelationships();
             
             if (hasChildRelationships) {
-                // Create multiple CSV files in a zip
                 this.exportMultipleCSVFiles();
             } else {
-                // Single CSV file
                 this.exportSingleCSV();
             }
             
         } catch (error) {
-            console.error('Export error:', error);
             this.showToast('Error', 'Failed to export data: ' + error.message, 'error');
         }
     }
@@ -1438,7 +1313,6 @@ export default class SoqlRunner extends LightningElement {
                 'success');
             
         } catch (error) {
-            console.error('Export error:', error);
             this.showToast('Error', 'Failed to export data: ' + error.message, 'error');
         }
     }
@@ -1646,9 +1520,8 @@ export default class SoqlRunner extends LightningElement {
             const sectionCell = guideWS[XLSX.utils.encode_cell({ r: row, c: 0 })];
             if (sectionCell && sectionCell.v && sectionCell.v.includes('GUIDE')) {
                 sectionCell.s = {
-                    font: { bold: true, size: 14 },
-                    fill: { fgColor: { rgb: "4472C4" } },
-                    font: { color: { rgb: "FFFFFF" }, bold: true }
+                    font: { color: { rgb: "FFFFFF" }, bold: true, size: 14 },
+                    fill: { fgColor: { rgb: "4472C4" } }
                 };
             }
         }
@@ -1716,9 +1589,6 @@ export default class SoqlRunner extends LightningElement {
             });
         });
         
-        console.log('Found child relationship fields:', Array.from(childRelationshipFields));
-        
-        // Create a sheet for each child relationship
         childRelationshipFields.forEach(relationshipName => {
             const childData = [];
             
@@ -1766,8 +1636,8 @@ export default class SoqlRunner extends LightningElement {
             if (childData.length > 0) {
                 // Sort child data by Parent_Row_Number to ensure proper grouping and navigation
                 childData.sort((a, b) => {
-                    const parentRowA = parseInt(a.Parent_Row_Number) || 0;
-                    const parentRowB = parseInt(b.Parent_Row_Number) || 0;
+                    const parentRowA = parseInt(a.Parent_Row_Number, 10) || 0;
+                    const parentRowB = parseInt(b.Parent_Row_Number, 10) || 0;
                     if (parentRowA !== parentRowB) {
                         return parentRowA - parentRowB;
                     }
