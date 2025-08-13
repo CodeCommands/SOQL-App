@@ -38,6 +38,10 @@ export default class SoqlRunner extends LightningElement {
     @track childDataTableColumns = [];
     @track childRelationshipTitle = '';
     @track rawQueryResults = []; // Store raw results for child expansion
+    
+    // Loading states
+    @track isLoadingSObjects = false;
+    @track isLoadingFields = false;
 
     connectedCallback() {
         this.loadSObjects();
@@ -85,14 +89,17 @@ export default class SoqlRunner extends LightningElement {
     }
 
     loadSObjects() {
+        this.isLoadingSObjects = true;
         getSObjects()
             .then(data => {
                 this.sobjects = data;
                 this.filteredSObjects = data;
+                this.isLoadingSObjects = false;
             })
             .catch(() => {
                 this.sobjects = [];
                 this.filteredSObjects = [];
+                this.isLoadingSObjects = false;
             });
     }
 
@@ -120,6 +127,8 @@ export default class SoqlRunner extends LightningElement {
         this.showFieldsTab = true;
         this.showChildRelTab = false;
         this.expandedRelationships = {};
+        this.isLoadingFields = true;
+        
         getSObjectFields({ sobjectApiName: apiName })
             .then(data => {
                 console.log('Raw field data:', data.fields.slice(0, 5)); // Debug first 5 fields
@@ -146,11 +155,13 @@ export default class SoqlRunner extends LightningElement {
                     expandIconClass: '',
                     childFields: [] // Will be loaded when expanded
                 }));
+                this.isLoadingFields = false;
             })
             .catch(() => {
                 this.sobjectFields = [];
                 this.filteredFields = [];
                 this.sobjectChildRels = [];
+                this.isLoadingFields = false;
             });
         // Auto-generate basic SOQL query
         this.query = `SELECT Id FROM ${apiName}`;

@@ -318,10 +318,24 @@
     background: var(--theme-color);
 }
 
+/* Enhanced scrolling for both main and child tables */
+.datatable-container-large {
+    height: 400px;
+    overflow: auto; /* Both horizontal and vertical scrolling */
+    border: 1px solid #d9dbdd;
+    border-radius: 4px;
+}
+
+.datatable-container-large .scrollable-datatable {
+    height: 100%;
+    min-width: 100%; /* Ensure table takes full width */
+}
+
 /* Child relationship panel styling */
 .child-relationship-panel {
     border: 1px solid #d9dbdd;
     background: #fafaf9;
+    max-height: 500px;
 }
 
 .child-relationship-panel .slds-card__header {
@@ -333,13 +347,20 @@
 .child-relationship-panel .slds-card__body {
     padding: 1rem;
     max-height: 400px;
-    overflow-y: auto;
+    overflow: auto; /* Both horizontal and vertical scrolling for child table */
 }
 
-/* Make child table scrollable */
-.child-relationship-panel .scrollable-datatable {
-    height: auto;
-    max-height: 300px;
+/* Make child table container scrollable in both directions */
+.child-table-container {
+    height: 350px;
+    overflow: auto; /* Both horizontal and vertical scrolling */
+    border: 1px solid #d9dbdd;
+    border-radius: 4px;
+}
+
+.child-table-container .scrollable-datatable {
+    height: 100%;
+    min-width: 100%; /* Ensure table takes full width */
 }
 
 /* Clickable subquery cells */
@@ -351,4 +372,39 @@
 
 .subquery-cell:hover {
     color: var(--theme-color);
+}
+
+/* Enhanced scrollbar styling for both directions */
+.datatable-container-large::-webkit-scrollbar,
+.child-table-container::-webkit-scrollbar,
+.child-relationship-panel .slds-card__body::-webkit-scrollbar {
+    width: 8px;
+    height: 8px; /* For horizontal scrollbar */
+}
+
+.datatable-container-large::-webkit-scrollbar-track,
+.child-table-container::-webkit-scrollbar-track,
+.child-relationship-panel .slds-card__body::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.datatable-container-large::-webkit-scrollbar-thumb,
+.child-table-container::-webkit-scrollbar-thumb,
+.child-relationship-panel .slds-card__body::-webkit-scrollbar-thumb {
+    background: var(--accent-color);
+    border-radius: 4px;
+}
+
+.datatable-container-large::-webkit-scrollbar-thumb:hover,
+.child-table-container::-webkit-scrollbar-thumb:hover,
+.child-relationship-panel .slds-card__body::-webkit-scrollbar-thumb:hover {
+    background: var(--theme-color);
+}
+
+/* Corner styling when both scrollbars are present */
+.datatable-container-large::-webkit-scrollbar-corner,
+.child-table-container::-webkit-scrollbar-corner,
+.child-relationship-panel .slds-card__body::-webkit-scrollbar-corner {
+    background: #f1f1f1;
 }

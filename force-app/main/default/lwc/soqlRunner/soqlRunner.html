@@ -7,13 +7,25 @@
             <template if:false={selectedSObject}>
                 <div class="slds-text-heading_small slds-m-bottom_small">SObjects</div>
                 <lightning-input type="search" label="Quick Find" value={sobjectSearch} onchange={handleSObjectSearch} variant="label-hidden" placeholder="Quick Find"></lightning-input>
-                <div style="height:80vh; overflow:auto;">
-                    <template for:each={filteredSObjects} for:item="obj">
-                        <div key={obj.apiName} class="slds-p-vertical_xx-small slds-truncate slds-text-link sobject-item" style="cursor:pointer;" onclick={selectSObject} data-apiname={obj.apiName}>
-                            {obj.label} / {obj.apiName}
-                        </div>
-                    </template>
-                </div>
+                
+                <!-- Loading indicator for SObjects -->
+                <template if:true={isLoadingSObjects}>
+                    <div class="slds-align_absolute-center slds-p-around_medium">
+                        <lightning-spinner alternative-text="Loading SObjects..." size="small"></lightning-spinner>
+                        <p class="slds-text-body_small slds-m-top_small">Loading SObjects...</p>
+                    </div>
+                </template>
+                
+                <!-- SObjects list -->
+                <template if:false={isLoadingSObjects}>
+                    <div style="height:80vh; overflow:auto;">
+                        <template for:each={filteredSObjects} for:item="obj">
+                            <div key={obj.apiName} class="slds-p-vertical_xx-small slds-truncate slds-text-link sobject-item" style="cursor:pointer;" onclick={selectSObject} data-apiname={obj.apiName}>
+                                {obj.label} / {obj.apiName}
+                            </div>
+                        </template>
+                    </div>
+                </template>
             </template>
 
             <!-- Fields Panel (show when SObject selected) -->
@@ -45,19 +57,29 @@
 
                         <!-- Fields Tab Content -->
                         <div class="slds-tabs_default__content slds-show" if:true={showFieldsTab} style="height:50vh; overflow:auto;">
-                            <ul class="slds-tree" if:true={filteredFields}>
-                                <template for:each={filteredFields} for:item="field">
-                                    <li aria-level="1" 
-                                        aria-selected={field.isActive} 
-                                        aria-expanded={field.isExpanded}
-                                        role="treeitem" 
-                                        key={field.name}>
-                                        <div class="slds-tree__item">
-                                            <button class="slds-button slds-button_icon slds-m-right_x-small"
-                                                    aria-hidden={field.isNotReference}
-                                                    tabindex="-1"
-                                                    title="Expand Reference Field"
-                                                    data-field={field.name}
+                            <!-- Loading indicator for fields -->
+                            <template if:true={isLoadingFields}>
+                                <div class="slds-align_absolute-center slds-p-around_medium">
+                                    <lightning-spinner alternative-text="Loading fields..." size="small"></lightning-spinner>
+                                    <p class="slds-text-body_small slds-m-top_small">Loading fields...</p>
+                                </div>
+                            </template>
+                            
+                            <!-- Fields list -->
+                            <template if:false={isLoadingFields}>
+                                <ul class="slds-tree" if:true={filteredFields}>
+                                    <template for:each={filteredFields} for:item="field">
+                                        <li aria-level="1" 
+                                            aria-selected={field.isActive} 
+                                            aria-expanded={field.isExpanded}
+                                            role="treeitem" 
+                                            key={field.name}>
+                                            <div class="slds-tree__item">
+                                                <button class="slds-button slds-button_icon slds-m-right_x-small"
+                                                        aria-hidden={field.isNotReference}
+                                                        tabindex="-1"
+                                                        title="Expand Reference Field"
+                                                        data-field={field.name}
                                                     onclick={toggleReferenceField}>
                                                 <svg class="slds-button__icon slds-button__icon_small" aria-hidden="true">
                                                     <use xlink:href="/_slds/icons/utility-sprite/svg/symbols.svg#chevronright"></use>
@@ -96,6 +118,7 @@
                                     </li>
                                 </template>
                             </ul>
+                            </template>
                         </div>
 
                         <!-- Child Relationships Tab Content -->
@@ -232,17 +255,19 @@
                                         </span>
                                     </div>
                                 </div>
-                                <lightning-datatable
-                                    key-field="Id"
-                                    data={childRelationshipData}
-                                    columns={childDataTableColumns}
-                                    class="scrollable-datatable"
-                                    hide-checkbox-column="true"
-                                    show-row-number-column="true"
-                                    resize-column-disabled="false"
-                                    min-column-width="120"
-                                    max-row-selection="0">
-                                </lightning-datatable>
+                                <div class="child-table-container">
+                                    <lightning-datatable
+                                        key-field="Id"
+                                        data={childRelationshipData}
+                                        columns={childDataTableColumns}
+                                        class="scrollable-datatable"
+                                        hide-checkbox-column="true"
+                                        show-row-number-column="true"
+                                        resize-column-disabled="false"
+                                        min-column-width="120"
+                                        max-row-selection="0">
+                                    </lightning-datatable>
+                                </div>
                             </div>
                         </div>
                     </template>
