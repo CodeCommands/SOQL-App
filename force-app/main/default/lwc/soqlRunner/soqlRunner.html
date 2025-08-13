@@ -1,0 +1,253 @@
+<template>
+    <div class="slds-grid slds-wrap" style="height: 100vh;">
+        <!-- Sidebar: SObjects List and Fields -->
+        <div class="slds-size_1-of-6 slds-border_right slds-p-around_small" style="background:#f4f6f9; min-width:300px;">
+            
+            <!-- SObjects Panel (show when no SObject selected) -->
+            <template if:false={selectedSObject}>
+                <div class="slds-text-heading_small slds-m-bottom_small">SObjects</div>
+                <lightning-input type="search" label="Quick Find" value={sobjectSearch} onchange={handleSObjectSearch} variant="label-hidden" placeholder="Quick Find"></lightning-input>
+                <div style="height:80vh; overflow:auto;">
+                    <template for:each={filteredSObjects} for:item="obj">
+                        <div key={obj.apiName} class="slds-p-vertical_xx-small slds-truncate slds-text-link sobject-item" style="cursor:pointer;" onclick={selectSObject} data-apiname={obj.apiName}>
+                            {obj.label} / {obj.apiName}
+                        </div>
+                    </template>
+                </div>
+            </template>
+
+            <!-- Fields Panel (show when SObject selected) -->
+            <template if:true={selectedSObject}>
+                <div class="slds-tree_container">
+                    <!-- Header with back button -->
+                    <div class="slds-p-around_small">
+                        <div class="slds-grid">
+                            <lightning-button-icon icon-name="utility:back" alternative-text="Back" title="Back" onclick={deselectSObject} class="slds-m-right_small"></lightning-button-icon>
+                            <h2 class="slds-tree__group-header slds-truncate">{selectedSObject}</h2>
+                        </div>
+                    </div>
+
+                    <!-- Search fields -->
+                    <div class="slds-form-element slds-p-horizontal_medium">
+                        <lightning-input type="search" label="Filter fields" value={fieldSearch} onchange={handleFieldSearch} variant="label-hidden" placeholder="Quick Find"></lightning-input>
+                    </div>
+
+                    <!-- Tabs for Fields and Child Relationships -->
+                    <div class="slds-tabs_default">
+                        <ul class="slds-tabs_default__nav" role="tablist">
+                            <li class={fieldsTabClass} role="presentation">
+                                <a class="slds-tabs_default__link" href="#" role="tab" onclick={showFields}>Fields</a>
+                            </li>
+                            <li class={relationshipsTabClass} role="presentation">
+                                <a class="slds-tabs_default__link" href="#" role="tab" onclick={showChildRelationships}>Child Relationships</a>
+                            </li>
+                        </ul>
+
+                        <!-- Fields Tab Content -->
+                        <div class="slds-tabs_default__content slds-show" if:true={showFieldsTab} style="height:50vh; overflow:auto;">
+                            <ul class="slds-tree" if:true={filteredFields}>
+                                <template for:each={filteredFields} for:item="field">
+                                    <li aria-level="1" 
+                                        aria-selected={field.isActive} 
+                                        aria-expanded={field.isExpanded}
+                                        role="treeitem" 
+                                        key={field.name}>
+                                        <div class="slds-tree__item">
+                                            <button class="slds-button slds-button_icon slds-m-right_x-small"
+                                                    aria-hidden={field.isNotReference}
+                                                    tabindex="-1"
+                                                    title="Expand Reference Field"
+                                                    data-field={field.name}
+                                                    onclick={toggleReferenceField}>
+                                                <svg class="slds-button__icon slds-button__icon_small" aria-hidden="true">
+                                                    <use xlink:href="/_slds/icons/utility-sprite/svg/symbols.svg#chevronright"></use>
+                                                </svg>
+                                                <span class="slds-assistive-text">Expand Reference Field</span>
+                                            </button>
+                                            <span class="slds-has-flexi-truncate" onclick={selectField} data-name={field.name}>
+                                                <a class="slds-tree__item-label slds-truncate" title={field.name}>
+                                                    {field.name}
+                                                </a>
+                                                <div class="field-details" title={field.details}>{field.details}</div>
+                                            </span>
+                                        </div>
+                                        <!-- Expanded reference fields would go here -->
+                                        <template if:true={field.isExpanded}>
+                                            <ul class="slds-tree">
+                                                <template for:each={field.referenceFields} for:item="refField">
+                                                    <li aria-level="2" 
+                                                        aria-selected={refField.isActive}
+                                                        role="treeitem" 
+                                                        key={refField.name}>
+                                                        <div class="slds-tree__item">
+                                                            <span class="slds-has-flexi-truncate" onclick={selectReferenceField} 
+                                                                  data-name={refField.name} 
+                                                                  data-parent={field.name}>
+                                                                <a class="slds-tree__item-label slds-truncate" title={refField.name}>
+                                                                    {refField.name}
+                                                                </a>
+                                                                <div class="field-details" title={refField.details}>{refField.details}</div>
+                                                            </span>
+                                                        </div>
+                                                    </li>
+                                                </template>
+                                            </ul>
+                                        </template>
+                                    </li>
+                                </template>
+                            </ul>
+                        </div>
+
+                        <!-- Child Relationships Tab Content -->
+<div class="slds-tabs_default__content slds-show" if:true={showChildRelTab} style="height:50vh; overflow:auto;">
+    <template if:false={sobjectChildRels.length}>
+        <div class="slds-p-around_small slds-text-color_weak">No matching child relationships found</div>
+    </template>
+    <template for:each={sobjectChildRels} for:item="rel">
+        <div key={rel.relationshipName} class="slds-tree__item">
+            <div class="slds-tree__item-label slds-p-vertical_xx-small">
+                <button class="slds-button slds-button_icon slds-button_icon-x-small slds-m-right_x-small" 
+                        onclick={toggleChildRelationship} 
+                        data-name={rel.relationshipName}
+                        aria-hidden={rel.isExpanded}>
+                    <lightning-icon icon-name="utility:chevronright" 
+                                   alternative-text="Expand Child Relationship" 
+                                   size="x-small"
+                                   class={rel.expandIconClass}>
+                    </lightning-icon>
+                </button>
+                <span class="slds-has-flexi-truncate" onclick={selectRelationship} data-name={rel.relationshipName}>
+                    <a class="slds-tree__item-label slds-truncate relationship-link" title={rel.relationshipName}>
+                        {rel.relationshipName}
+                    </a>
+                    <div class="relationship-details slds-text-color_weak slds-text-body_small">{rel.childSObject}</div>
+                </span>
+            </div>
+            <template if:true={rel.isExpanded}>
+                <div class="slds-tree__group" role="group">
+                    <template for:each={rel.childFields} for:item="childField">
+                        <div key={childField.apiName} class="slds-tree__item slds-m-left_large">
+                            <div class="slds-form-element">
+                                <div class="slds-form-element__control">
+                                    <label class="slds-checkbox">
+                                        <input type="checkbox" 
+                                               data-apiname={childField.apiName} 
+                                               data-relationship={rel.relationshipName}
+                                               checked={childField.isSelected}
+                                               onchange={toggleChildField} />
+                                        <span class="slds-checkbox_faux"></span>
+                                        <span class="slds-form-element__label">{childField.label}</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="slds-text-color_weak slds-text-body_small slds-m-left_large">
+                                {childField.apiName} • {childField.type}
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+    </template>
+</div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Main Content: SOQL Input and Results -->
+        <div class="slds-size_5-of-6 slds-p-around_medium">
+            <div class="slds-grid slds-gutters slds-m-bottom_small">
+                <div class="slds-col">
+                    <lightning-button label="Query" onclick={handleRun} class="slds-m-right_x-small"></lightning-button>
+                    <lightning-button label="Query All" onclick={handleRunAll} class="slds-m-right_x-small"></lightning-button>
+                    <lightning-button label="Format SOQL" onclick={handleFormatSOQL}></lightning-button>
+                </div>
+            </div>
+            <lightning-textarea label="Input SOQL" value={query} onchange={handleQueryChange}></lightning-textarea>
+            <template if:true={error}>
+                <div class="slds-text-color_error slds-m-top_medium">{error}</div>
+            </template>
+            
+            <template if:true={isLoading}>
+                <div class="slds-text-align_center slds-m-top_medium">
+                    <lightning-spinner alternative-text="Loading results..." size="medium"></lightning-spinner>
+                </div>
+            </template>
+            
+            <template if:true={results.length}>
+                <div class="slds-m-top_medium">
+                    <div class="slds-grid slds-gutters slds-m-bottom_small">
+                        <div class="slds-col">
+                            <lightning-button label="Export CSV" onclick={handleExportCSV} variant="neutral"></lightning-button>
+                        </div>
+                        <div class="slds-col slds-text-align_right">
+                            <span class="slds-text-body_small slds-text-color_weak">
+                                {results.length} records • Scroll to view all data
+                            </span>
+                        </div>
+                    </div>
+                    <div class="datatable-container-large">
+                        <!-- Main Results Table -->
+                        <lightning-datatable
+                            key-field="Id"
+                            data={results}
+                            columns={dataTableColumns}
+                            class="scrollable-datatable"
+                            hide-checkbox-column="true"
+                            show-row-number-column="true"
+                            resize-column-disabled="false"
+                            min-column-width="120"
+                            max-row-selection="0"
+                            onrowaction={handleRowAction}>
+                        </lightning-datatable>
+                    </div>
+                    
+                    <!-- Child Relationship Table -->
+                    <template if:true={childRelationshipData}>
+                        <div class="slds-card slds-m-top_medium child-relationship-panel">
+                            <div class="slds-card__header slds-grid">
+                                <header class="slds-media slds-media_center slds-has-flexi-truncate">
+                                    <div class="slds-media__body">
+                                        <h2 class="slds-card__header-title">
+                                            <span class="slds-text-heading_small">{childRelationshipTitle}</span>
+                                        </h2>
+                                    </div>
+                                    <div class="slds-no-flex">
+                                        <lightning-button-icon
+                                            icon-name="utility:close"
+                                            variant="bare"
+                                            onclick={closeChildRelationship}
+                                            title="Close child relationship view"
+                                            alternative-text="Close">
+                                        </lightning-button-icon>
+                                    </div>
+                                </header>
+                            </div>
+                            <div class="slds-card__body slds-card__body_inner">
+                                <div class="slds-grid slds-m-bottom_small">
+                                    <div class="slds-col slds-align_absolute-center">
+                                        <span class="slds-text-body_small slds-text-color_weak">
+                                            {childRelationshipData.length} records
+                                        </span>
+                                    </div>
+                                </div>
+                                <lightning-datatable
+                                    key-field="Id"
+                                    data={childRelationshipData}
+                                    columns={childDataTableColumns}
+                                    class="scrollable-datatable"
+                                    hide-checkbox-column="true"
+                                    show-row-number-column="true"
+                                    resize-column-disabled="false"
+                                    min-column-width="120"
+                                    max-row-selection="0">
+                                </lightning-datatable>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </template>
+        </div>
+    </div>
+</template>

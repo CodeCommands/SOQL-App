@@ -1,0 +1,354 @@
+:host {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    --theme-color: #4B3F72;
+    --accent-color: #1976D2;
+    --sidebar-bg: #f4f6f9;
+    --sidebar-active: #e3e0f7;
+    --header-bg: var(--theme-color);
+    --header-color: #fff;
+}
+
+.slds-card, .slds-lightning-card {
+    border-radius: 8px;
+}
+
+.slds-grid {
+    background: #fff;
+}
+
+.slds-size_1-of-6 {
+    background: var(--sidebar-bg);
+}
+
+.slds-text-heading_small {
+    color: var(--theme-color);
+    font-weight: 600;
+}
+
+.slds-text-link {
+    color: var(--accent-color);
+    transition: background 0.2s;
+}
+
+.slds-text-link:hover, .slds-text-link:focus {
+    background: var(--sidebar-active);
+    color: var(--theme-color);
+    border-radius: 4px;
+}
+
+.slds-m-bottom_small {
+    margin-bottom: 0.75rem;
+}
+
+.slds-m-top_medium {
+    margin-top: 1.5rem;
+}
+
+.lightning-button {
+    font-weight: 500;
+}
+
+.lightning-card {
+    border: none;
+    box-shadow: none;
+}
+
+/* Custom header bar */
+.header-bar {
+    background: var(--header-bg);
+    color: var(--header-color);
+    padding: 1rem 2rem;
+    font-size: 1.5rem;
+    font-weight: 700;
+    letter-spacing: 1px;
+    border-bottom: 2px solid var(--accent-color);
+}
+
+/* Field selection styling */
+.field-item {
+    border-bottom: 1px solid #e0e0e0;
+    cursor: pointer;
+}
+
+.field-item:hover {
+    background: var(--sidebar-active);
+}
+
+.sobject-item:hover {
+    background: var(--sidebar-active);
+    border-radius: 4px;
+}
+
+.slds-tree_container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.slds-tree__group-header {
+    padding: 0.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.slds-tabs_default {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.slds-tabs_default__nav {
+    border-bottom: 1px solid #ddd;
+}
+
+.slds-tabs_default__link {
+    padding: 0.5rem 1rem;
+    border-bottom: 2px solid transparent;
+}
+
+.slds-tabs_default__item.slds-is-active .slds-tabs_default__link {
+    border-bottom-color: var(--accent-color);
+    color: var(--accent-color);
+    font-weight: 700;
+}
+
+.slds-tabs_default__content {
+    flex: 1;
+    position: relative;
+    padding: 0;
+}
+
+/* Child Relationships Tree Styling */
+.slds-tree__item {
+    padding-top: 0.2rem;
+    padding-bottom: 0.2rem;
+}
+
+.slds-tree__item button[aria-hidden='true'] {
+    visibility: hidden;
+}
+
+.relationship-details {
+    font-size: 0.75rem;
+    line-height: 1;
+    color: #919191;
+}
+
+.field-details {
+    font-size: 0.75rem;
+    line-height: 1;
+    color: #919191;
+}
+
+.relationship-link {
+    cursor: pointer;
+}
+
+.relationship-link:hover,
+.slds-tree__item-label:hover {
+    color: var(--accent-color);
+}
+
+.slds-tree__item-label {
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.slds-tree__item-label:hover {
+    text-decoration: underline;
+}
+
+.slds-tree__group {
+    margin-left: 1rem;
+    border-left: 1px solid #e0e0e0;
+    padding-left: 0.5rem;
+}
+
+/* Responsive tweaks */
+@media (max-width: 900px) {
+    .slds-size_1-of-6, .slds-size_4-of-6 {
+        min-width: 100px;
+    }
+}
+
+/* Datatable scrolling styles */
+.datatable-container {
+    max-height: 500px;
+    max-width: 100%;
+    overflow: auto;
+    border: 1px solid #d8dde6;
+    border-radius: 4px;
+    margin-top: 1rem;
+    background: #fff;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Larger datatable container for wider layout */
+.datatable-container-large {
+    max-height: 650px;
+    max-width: 100%;
+    overflow: auto;
+    border: 1px solid #d8dde6;
+    border-radius: 4px;
+    margin-top: 1rem;
+    background: #fff;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.scrollable-datatable {
+    min-width: 100%;
+    height: 100%;
+}
+
+/* Custom scrollbar styling */
+.datatable-container::-webkit-scrollbar,
+.datatable-container-large::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+}
+
+.datatable-container::-webkit-scrollbar-track,
+.datatable-container-large::-webkit-scrollbar-track {
+    background: #f8f9fa;
+    border-radius: 6px;
+    margin: 2px;
+}
+
+.datatable-container::-webkit-scrollbar-thumb,
+.datatable-container-large::-webkit-scrollbar-thumb {
+    background: var(--accent-color);
+    border-radius: 6px;
+    border: 2px solid #f8f9fa;
+    transition: background 0.2s ease;
+}
+
+.datatable-container::-webkit-scrollbar-thumb:hover,
+.datatable-container-large::-webkit-scrollbar-thumb:hover {
+    background: var(--theme-color);
+}
+
+.datatable-container::-webkit-scrollbar-corner,
+.datatable-container-large::-webkit-scrollbar-corner {
+    background: #f8f9fa;
+}
+
+/* Ensure the datatable header stays visible during scroll */
+.datatable-container lightning-datatable,
+.datatable-container-large lightning-datatable {
+    position: relative;
+}
+
+/* Fix for sticky header behavior */
+.datatable-container .slds-table_header-fixed_container,
+.datatable-container-large .slds-table_header-fixed_container {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #fff;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Smooth scrolling */
+.datatable-container,
+.datatable-container-large {
+    scroll-behavior: smooth;
+}
+
+/* Table row hover effects */
+.datatable-container lightning-datatable .slds-table tbody tr:hover,
+.datatable-container-large lightning-datatable .slds-table tbody tr:hover {
+    background-color: #f4f6f9;
+}
+
+/* Loading state styling */
+.slds-spinner_container {
+    background: rgba(255, 255, 255, 0.8);
+}
+
+/* Sidebar scrolling improvements */
+.slds-size_1-of-6 {
+    background: var(--sidebar-bg);
+    max-height: 100vh;
+    overflow-y: auto;
+}
+
+/* Custom scrollbar for sidebar */
+.slds-size_1-of-6::-webkit-scrollbar {
+    width: 8px;
+}
+
+.slds-size_1-of-6::-webkit-scrollbar-track {
+    background: #e5e5e5;
+    border-radius: 4px;
+}
+
+.slds-size_1-of-6::-webkit-scrollbar-thumb {
+    background: var(--theme-color);
+    border-radius: 4px;
+    opacity: 0.7;
+}
+
+.slds-size_1-of-6::-webkit-scrollbar-thumb:hover {
+    opacity: 1;
+}
+
+/* Better field tree scrolling */
+.slds-tabs_default__content {
+    max-height: 60vh !important;
+    overflow-y: auto !important;
+}
+
+.slds-tabs_default__content::-webkit-scrollbar {
+    width: 8px;
+}
+
+.slds-tabs_default__content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.slds-tabs_default__content::-webkit-scrollbar-thumb {
+    background: var(--accent-color);
+    border-radius: 4px;
+}
+
+.slds-tabs_default__content::-webkit-scrollbar-thumb:hover {
+    background: var(--theme-color);
+}
+
+/* Child relationship panel styling */
+.child-relationship-panel {
+    border: 1px solid #d9dbdd;
+    background: #fafaf9;
+}
+
+.child-relationship-panel .slds-card__header {
+    background: #f3f3f2;
+    border-bottom: 1px solid #d9dbdd;
+    padding: 0.75rem 1rem;
+}
+
+.child-relationship-panel .slds-card__body {
+    padding: 1rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+/* Make child table scrollable */
+.child-relationship-panel .scrollable-datatable {
+    height: auto;
+    max-height: 300px;
+}
+
+/* Clickable subquery cells */
+.subquery-cell {
+    cursor: pointer;
+    color: var(--accent-color);
+    text-decoration: underline;
+}
+
+.subquery-cell:hover {
+    color: var(--theme-color);
+}

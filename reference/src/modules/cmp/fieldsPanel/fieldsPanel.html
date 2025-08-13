@@ -1,0 +1,86 @@
+<template>
+  <base-spinner if:true={isLoading}></base-spinner>
+  <div class="slds-tree_container" if:true={sobjectMeta}>
+    <div class="slds-p-left_small">
+      <div class="slds-grid">
+        <button class="slds-button slds-button_icon" title="Back" onclick={deselectSObject}>
+          <svg class="slds-button__icon" aria-hidden="true">
+            <use xlink:href="./resources/slds/icons/utility-sprite/svg/symbols.svg#back"></use>
+          </svg>
+          <span class="slds-assistive-text">{i18n.FIELDS_PANEL_BACK}</span>
+        </button>
+        <h2 class="slds-tree__group-header slds-truncate">{sobjectMeta.name} / {sobjectMeta.label}</h2>
+      </div>
+    </div>
+    <div class="slds-form-element slds-p-horizontal_large">
+      <label class="slds-form-element__label slds-assistive-text">{i18n.FIELDS_PANEL_FILTER_FIELDS}</label>
+      <div class="slds-form-element__control slds-input-has-icon slds-input-has-icon_left-right">
+        <span class="slds-icon_container slds-icon-utility-search">
+          <svg class="slds-icon slds-input__icon slds-input__icon_left slds-icon-text-default" aria-hidden="true">
+            <use xlink:href="./resources/slds/icons/utility-sprite/svg/symbols.svg#search"></use>
+          </svg>
+        </span>
+        <input
+          type="search"
+          placeholder={i18n.FIELDS_PANEL_QUICK_FIND}
+          class="slds-input"
+          value={keyword}
+          onkeyup={setKeyword}
+        />
+        <button
+          class="slds-button slds-button_icon slds-input__icon slds-input__icon_right"
+          title={i18n.FIELDS_PANEL_KEYWORD_CLEAR}
+          onclick={handleClear}
+          if:true={isDisplayClearButton}
+        >
+          <svg class="slds-button__icon slds-icon-text-light" aria-hidden="true">
+            <use xlink:href="./resources/slds/icons/utility-sprite/svg/symbols.svg#clear"></use>
+          </svg>
+          <span class="slds-assistive-text">{i18n.FIELDS_PANEL_KEYWORD_CLEAR}</span>
+        </button>
+      </div>
+    </div>
+    <div class="slds-tabs_default slds-is-relative">
+      <ul class="slds-tabs_default__nav" role="tablist">
+        <template for:each={tabs} for:item="tab">
+          <li class="slds-tabs_default__item" aria-selected={tab.isActive} title={tab.label} key={tab.id}>
+            <a class="slds-tabs_default__link" role="tab" tabindex="-1" onclick={selectTab} data-id={tab.id}
+              >{tab.label}</a
+            >
+          </li>
+        </template>
+      </ul>
+      <div class="dropdown-menu" if:true={isFieldsActive}>
+        <base-menu alternative-text={i18n.FIELDS_PANEL_SHOW_MENU} onselect={handleMenuSelect}>
+          <base-menu-item
+            icon-name="utility:multi_select_checkbox"
+            label={i18n.FIELDS_PANEL_SELECT_ALL_FIELDS}
+            value="select_all"
+          ></base-menu-item>
+          <base-menu-item icon-name="utility:clear" label={i18n.FIELDS_PANEL_CLEAR_ALL_FIELDS} value="clear_all">
+          </base-menu-item>
+          <base-menu-item
+            icon-name="utility:arrowdown"
+            label={i18n.FIELDS_PANEL_SORT_ASC}
+            value="sort_asc"
+          ></base-menu-item>
+          <base-menu-item
+            icon-name="utility:arrowup"
+            label={i18n.FIELDS_PANEL_SORT_DESC}
+            value="sort_desc"
+          ></base-menu-item>
+        </base-menu>
+      </div>
+      <div class="slds-tabs_default__content" role="tabpanel" if:true={isFieldsActive}>
+        <div class="left-panel-scrollable" if:true={sobjectMeta}>
+          <cmp-fields-tree sobject={sobjectMeta.name} keyword={keyword}></cmp-fields-tree>
+        </div>
+      </div>
+      <div class="slds-tabs_default__content" role="tabpanel" if:true={isRelationshipsActive}>
+        <div class="left-panel-scrollable" if:true={sobjectMeta}>
+          <cmp-relationships-tree sobject={sobjectMeta.name} keyword={keyword}></cmp-relationships-tree>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
