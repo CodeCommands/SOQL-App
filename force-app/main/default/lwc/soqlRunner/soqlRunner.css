@@ -122,6 +122,12 @@
 .slds-tree__item {
     padding-top: 0.2rem;
     padding-bottom: 0.2rem;
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+}
+
+.slds-tree__item:hover {
+    background-color: var(--sidebar-active);
 }
 
 .slds-tree__item button[aria-hidden='true'] {
@@ -132,16 +138,20 @@
     font-size: 0.75rem;
     line-height: 1;
     color: #919191;
+    margin-top: 0.25rem;
 }
 
 .field-details {
     font-size: 0.75rem;
     line-height: 1;
     color: #919191;
+    margin-top: 0.25rem;
 }
 
 .relationship-link {
     cursor: pointer;
+    font-weight: 600;
+    color: var(--theme-color);
 }
 
 .relationship-link:hover,
@@ -152,16 +162,60 @@
 .slds-tree__item-label {
     cursor: pointer;
     text-decoration: none;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    display: block;
 }
 
 .slds-tree__item-label:hover {
-    text-decoration: underline;
+    background-color: #f4f6f9;
+    color: var(--accent-color);
+}
+
+/* Selected field styling */
+.slds-tree__item-label.selected {
+    background-color: var(--accent-color);
+    color: white;
+    font-weight: 600;
+}
+
+.slds-tree__item-label.selected:hover {
+    background-color: var(--theme-color);
+    color: white;
 }
 
 .slds-tree__group {
     margin-left: 1rem;
     border-left: 1px solid #e0e0e0;
     padding-left: 0.5rem;
+}
+
+/* Compact chevron styling */
+.slds-button_icon {
+    min-width: 1.5rem;
+    min-height: 1.5rem;
+}
+
+.slds-tree__button {
+    min-width: 1.5rem;
+    min-height: 1.5rem;
+}
+
+/* Tree expansion animation */
+.slds-tree__group {
+    transition: max-height 0.3s ease-in-out;
+    overflow: hidden;
+}
+
+.slds-tree__group.expanded {
+    max-height: 1000px;
+}
+
+.slds-tree__group.collapsed {
+    max-height: 0;
+    padding: 0;
+    margin: 0;
 }
 
 /* Responsive tweaks */
@@ -407,4 +461,67 @@
 .child-table-container::-webkit-scrollbar-corner,
 .child-relationship-panel .slds-card__body::-webkit-scrollbar-corner {
     background: #f1f1f1;
+}
+
+/* SOQL Editor Styling - Using Medium article recommended approach */
+.soql-editor-container {
+    margin-bottom: 1rem;
+}
+
+/* Method 1: CSS Custom Property from Medium article - Most effective approach */
+.soql-editor-textarea {
+    --sds-c-textarea-sizing-min-height: 225px;
+}
+
+/* Method 3: CSS Variables for customizable height from Medium article */
+:host {
+    --textarea-height: 225px;
+}
+
+.soql-editor-textarea textarea {
+    height: var(--textarea-height);
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.4;
+    resize: vertical;
+    overflow-y: auto;
+    white-space: pre;
+    word-wrap: break-word;
+}
+
+/* Alternative targeting for SLDS textarea */
+.soql-editor-textarea .slds-textarea {
+    min-height: var(--textarea-height);
+    height: var(--textarea-height);
+    max-height: 400px;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.4;
+    resize: vertical;
+    overflow-y: auto;
+    white-space: pre;
+    word-wrap: break-word;
+}
+
+/* Custom scrollbar for SOQL editor */
+.soql-editor-textarea textarea::-webkit-scrollbar,
+.soql-editor-textarea .slds-textarea::-webkit-scrollbar {
+    width: 8px;
+}
+
+.soql-editor-textarea textarea::-webkit-scrollbar-track,
+.soql-editor-textarea .slds-textarea::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.soql-editor-textarea textarea::-webkit-scrollbar-thumb,
+.soql-editor-textarea .slds-textarea::-webkit-scrollbar-thumb {
+    background: var(--accent-color);
+    border-radius: 4px;
+}
+
+.soql-editor-textarea textarea::-webkit-scrollbar-thumb:hover,
+.soql-editor-textarea .slds-textarea::-webkit-scrollbar-thumb:hover {
+    background: var(--theme-color);
 }

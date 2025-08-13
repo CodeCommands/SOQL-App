@@ -1,6 +1,0 @@
-/* eslint-disable no-undef */
-module.exports = {
-    CLIENT_ID: '<YOUR CONNECTED APP CLIENT ID>',
-    FIREBASE_PROJECT_ID: '<YOUR FIREBASE PROJECT ID>',
-    GOOGLE_ANALYTICS_ID: ''
-};

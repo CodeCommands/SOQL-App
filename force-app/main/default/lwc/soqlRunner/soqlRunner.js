@@ -1,4 +1,7 @@
 import { LightningElement, track } from 'lwc';
+import { loadScript } from 'lightning/platformResourceLoader';
+import { ShowToastEvent } from 'lightning/platformShowToastEvent';
+import SHEETJS from '@salesforce/resourceUrl/sheetjs';
 import runSOQL from '@salesforce/apex/CodeBuddhaSOQLRunner.runSOQL';
 import getSObjects from '@salesforce/apex/CodeBuddhaSOQLMeta.getSObjects';
 import getSObjectFields from '@salesforce/apex/CodeBuddhaSOQLMeta.getSObjectFields';
@@ -9,6 +12,13 @@ export default class SoqlRunner extends LightningElement {
     themeColor = '#4B3F72'; // Modern purple
     accentColor = '#1976D2'; // Blue accent
     fontFamily = 'Segoe UI, Arial, sans-serif';
+
+    // SheetJS Library
+    sheetJSInitialized = false;
+    
+    // SOQL Parser JS Library
+    soqlParserInitialized = false;
+    soqlParser = null;
 
     // Sidebar SObjects
     @track sobjects = [];
@@ -46,7 +56,26 @@ export default class SoqlRunner extends LightningElement {
     connectedCallback() {
         this.loadSObjects();
         this.loadRecentQueries();
+        this.loadSheetJS();
     }
+
+    // Load SheetJS library
+    loadSheetJS() {
+        if (this.sheetJSInitialized) {
+            return;
+        }
+        loadScript(this, SHEETJS)
+            .then(() => {
+                this.sheetJSInitialized = true;
+                console.log('SheetJS loaded successfully');
+            })
+            .catch(error => {
+                console.error('Error loading SheetJS:', error);
+                this.showToast('Error', 'Failed to load export library', 'error');
+            });
+    }
+
+    // Load SOQL Parser JS library
     
     // Computed property for datatable columns with subquery handling
     get dataTableColumns() {
@@ -152,7 +181,7 @@ export default class SoqlRunner extends LightningElement {
                 this.sobjectChildRels = data.childRelationships.map(rel => ({
                     ...rel,
                     isExpanded: false,
-                    expandIconClass: '',
+                    chevronIcon: '/_slds/icons/utility-sprite/svg/symbols.svg#chevronright',
                     childFields: [] // Will be loaded when expanded
                 }));
                 this.isLoadingFields = false;
@@ -163,8 +192,8 @@ export default class SoqlRunner extends LightningElement {
                 this.sobjectChildRels = [];
                 this.isLoadingFields = false;
             });
-        // Auto-generate basic SOQL query
-        this.query = `SELECT Id FROM ${apiName}`;
+        // Auto-generate basic SOQL query with formatting
+        this.query = `SELECT Id\nFROM ${apiName}`;
     }
 
     goBackToSObjects() {
@@ -341,15 +370,18 @@ export default class SoqlRunner extends LightningElement {
                 for (const [relationshipName, fieldSet] of this.selectedSubqueries) {
                     if (fieldSet.size > 0) {
                         const subqueryFields = Array.from(fieldSet).join(', ');
+                        // Build subquery as single line - formatting will be applied when user clicks Format SOQL
                         const subquery = `(SELECT ${subqueryFields} FROM ${relationshipName})`;
                         fields.push(subquery);
                     }
                 }
             }
             
-            // Build final query
+            // Build final query as single line - user can format it later
             if (fields.length > 0) {
-                this.query = `SELECT ${fields.join(', ')} FROM ${this.selectedSObject}`;
+                // Join fields with comma and space only (no line breaks)
+                const formattedFields = fields.join(', ');
+                this.query = `SELECT ${formattedFields} FROM ${this.selectedSObject}`;
             } else {
                 this.query = `SELECT Id FROM ${this.selectedSObject}`;
             }
@@ -358,47 +390,81 @@ export default class SoqlRunner extends LightningElement {
 
     toggleChildRelationship(event) {
         const relationshipName = event.currentTarget.dataset.name;
-        const relationship = this.sobjectChildRels.find(rel => rel.relationshipName === relationshipName);
+        console.log('Toggling relationship:', relationshipName);
         
-        if (relationship) {
-            relationship.isExpanded = !relationship.isExpanded;
-            relationship.expandIconClass = relationship.isExpanded ? 'slds-icon-utility-chevrondown' : '';
-            
-            // Load child object fields when expanding for the first time
-            if (relationship.isExpanded && relationship.childFields.length === 0) {
-                getSObjectFields({ sobjectApiName: relationship.childSObject })
-                    .then(data => {
-                        relationship.childFields = data.fields.slice(0, 10).map(field => ({
-                            ...field,
-                            isSelected: this.isChildFieldSelected(relationship.relationshipName, field.apiName)
-                        }));
-                        this.sobjectChildRels = [...this.sobjectChildRels]; // Trigger reactivity
-                    })
-                    .catch(() => {
-                        relationship.childFields = [];
-                    });
+        // Find and update the relationship
+        this.sobjectChildRels = this.sobjectChildRels.map(rel => {
+            if (rel.relationshipName === relationshipName) {
+                const newExpanded = !rel.isExpanded;
+                console.log('Changing expanded from', rel.isExpanded, 'to', newExpanded);
+                
+                const updatedRel = {
+                    ...rel,
+                    isExpanded: newExpanded,
+                    chevronIcon: newExpanded ? 
+                        '/_slds/icons/utility-sprite/svg/symbols.svg#chevrondown' : 
+                        '/_slds/icons/utility-sprite/svg/symbols.svg#chevronright'
+                };
+                
+                // Load child object fields when expanding for the first time
+                if (newExpanded && updatedRel.childFields.length === 0) {
+                    console.log('Loading fields for child object:', rel.childSObject);
+                    
+                    getSObjectFields({ sobjectApiName: rel.childSObject })
+                        .then(data => {
+                            console.log('Loaded child fields:', data.fields.length);
+                            // Load ALL fields, not just first 10
+                            const childFields = data.fields.map(field => ({
+                                ...field,
+                                isSelected: this.isChildFieldSelected(rel.relationshipName, field.apiName),
+                                labelClass: this.isChildFieldSelected(rel.relationshipName, field.apiName) ? 
+                                    'selected-field' : ''
+                            }));
+                            
+                            // Update the specific relationship with the loaded fields
+                            this.sobjectChildRels = this.sobjectChildRels.map(r => {
+                                if (r.relationshipName === relationshipName) {
+                                    return { ...r, childFields: childFields };
+                                }
+                                return r;
+                            });
+                        })
+                        .catch(error => {
+                            console.error('Error loading child fields:', error);
+                            // Update with empty fields array on error
+                            this.sobjectChildRels = this.sobjectChildRels.map(r => {
+                                if (r.relationshipName === relationshipName) {
+                                    return { ...r, childFields: [] };
+                                }
+                                return r;
+                            });
+                        });
+                }
+                
+                return updatedRel;
             }
-            
-            this.sobjectChildRels = [...this.sobjectChildRels]; // Trigger reactivity
-        }
+            return rel;
+        });
     }
 
     selectRelationship(event) {
         const relationshipName = event.currentTarget.dataset.name;
         // Add subquery to SOQL
         if (this.query.includes('FROM')) {
-            const subquery = `(SELECT Id FROM ${relationshipName})`;
+            const subquery = `(\n    SELECT Id\n    FROM ${relationshipName}\n)`;
             if (!this.query.includes(subquery)) {
                 // Insert subquery before FROM clause
                 const parts = this.query.split(' FROM ');
-                this.query = `${parts[0]}, ${subquery} FROM ${parts[1]}`;
+                this.query = `${parts[0]},\n       ${subquery}\nFROM ${parts[1]}`;
             }
         }
     }
 
     toggleChildField(event) {
-        const fieldApiName = event.target.dataset.apiname;
-        const relationshipName = event.target.dataset.relationship;
+        const fieldApiName = event.currentTarget.dataset.apiname;
+        const relationshipName = event.currentTarget.dataset.relationship;
+        
+        console.log('Toggling child field:', fieldApiName, 'in relationship:', relationshipName);
         
         // Get or create the field set for this relationship
         if (!this.selectedSubqueries.has(relationshipName)) {
@@ -407,17 +473,16 @@ export default class SoqlRunner extends LightningElement {
         
         const relationshipFields = this.selectedSubqueries.get(relationshipName);
         
-        if (event.target.checked) {
-            // Add field to subquery
-            relationshipFields.add(fieldApiName);
-        } else {
-            // Remove field from subquery
+        // Toggle the field selection
+        if (relationshipFields.has(fieldApiName)) {
             relationshipFields.delete(fieldApiName);
-            
-            // If no fields left in this relationship, remove the relationship entirely
-            if (relationshipFields.size === 0) {
-                this.selectedSubqueries.delete(relationshipName);
-            }
+        } else {
+            relationshipFields.add(fieldApiName);
+        }
+        
+        // If no fields left in this relationship, remove the relationship entirely
+        if (relationshipFields.size === 0) {
+            this.selectedSubqueries.delete(relationshipName);
         }
         
         // Update the field state in the UI
@@ -427,7 +492,12 @@ export default class SoqlRunner extends LightningElement {
                     ...rel,
                     childFields: rel.childFields.map(field => {
                         if (field.apiName === fieldApiName) {
-                            return { ...field, isSelected: event.target.checked };
+                            const isSelected = relationshipFields.has(fieldApiName);
+                            return { 
+                                ...field, 
+                                isSelected: isSelected,
+                                labelClass: isSelected ? 'selected-field' : ''
+                            };
                         }
                         return field;
                     })
@@ -886,28 +956,901 @@ export default class SoqlRunner extends LightningElement {
     }
 
     handleFormatSOQL() {
-        // Simple formatting: uppercase keywords
-        if (this.query) {
-            let formatted = this.query.replace(/\b(select|from|where|order by|group by|limit|offset|having|and|or|not|asc|desc)\b/gi,
-                match => match.toUpperCase()
-            );
+        if (!this.query) {
+            this.showToast('Info', 'No query to format', 'info');
+            return;
+        }
+        
+        try {
+            // Format using simple but effective formatter
+            const formatted = this.formatSOQLSimple(this.query);
             this.query = formatted;
+            this.showToast('Success', 'SOQL formatted successfully', 'success');
+        } catch (error) {
+            console.error('Error formatting SOQL:', error);
+            this.showToast('Error', 'Failed to format SOQL: ' + error.message, 'error');
+        }
+    }
+
+    // Simple but effective SOQL formatter
+    formatSOQLSimple(query) {
+        console.log('🔧 Original query:', query);
+        
+        // Clean up the query first
+        let formatted = query.replace(/\s+/g, ' ').trim();
+        console.log('🔧 Cleaned query:', formatted);
+        
+        // Check if it contains SELECT and FROM
+        if (!formatted.toUpperCase().includes('SELECT') || !formatted.toUpperCase().includes('FROM')) {
+            console.log('❌ Query does not contain SELECT and FROM');
+            throw new Error('Query must contain SELECT and FROM');
+        }
+        
+        // Format SELECT clause with proper field indentation
+        // Find the last FROM keyword (main query FROM, not subquery FROM)
+        const fromIndex = formatted.lastIndexOf(' FROM ');
+        console.log('🔧 FROM index:', fromIndex);
+        
+        if (fromIndex !== -1) {
+            const selectPart = formatted.substring(0, fromIndex);
+            const fromPart = formatted.substring(fromIndex + 6); // Skip " FROM "
+            
+            console.log('🔧 SELECT part:', selectPart);
+            console.log('🔧 FROM part:', fromPart);
+            
+            // Extract fields from SELECT part
+            const selectMatch = selectPart.match(/SELECT\s+(.+)$/i);
+            if (selectMatch) {
+                const [, fieldsStr] = selectMatch;
+                const fromClause = fromPart;
+                console.log('🔧 Fields string:', fieldsStr);
+                console.log('🔧 FROM clause:', fromClause);
+                
+                const fields = this.splitFields(fieldsStr.trim());
+                console.log('🔧 Split fields:', fields);
+                
+                // Separate regular fields from subqueries
+                const regularFields = [];
+                const subqueryFields = [];
+                
+                fields.forEach(field => {
+                    field = field.trim();
+                    if (field.includes('(') && field.toUpperCase().includes('SELECT')) {
+                        subqueryFields.push(field);
+                    } else {
+                        regularFields.push(field);
+                    }
+                });
+                
+                console.log('🔧 Regular fields:', regularFields);
+                console.log('🔧 Subquery fields:', subqueryFields);
+                
+                // Format regular fields - keep them on same line with commas, but wrap if too long
+                let formattedRegularFields = '';
+                if (regularFields.length > 0) {
+                    const fieldsLine = regularFields.join(', ');
+                    // If line is too long (>80 chars), wrap it intelligently
+                    if (fieldsLine.length > 80) {
+                        formattedRegularFields = this.wrapFieldsIntelligently(regularFields);
+                    } else {
+                        formattedRegularFields = fieldsLine;
+                    }
+                }
+                
+                // Format subqueries
+                const formattedSubqueries = subqueryFields.map(field => {
+                    console.log('🔧 Processing subquery field:', field);
+                    return this.formatSubquery(field, false); // Never first field since regular fields come first
+                });
+                
+                // Combine all formatted fields
+                const allFormattedFields = [];
+                if (formattedRegularFields) {
+                    allFormattedFields.push(formattedRegularFields);
+                }
+                allFormattedFields.push(...formattedSubqueries);
+                
+                console.log('🔧 All formatted fields:', allFormattedFields);
+                
+                formatted = 'SELECT ' + allFormattedFields.join(',\n') + '\nFROM ' + fromClause.trim();
+            } else {
+                console.log('❌ SELECT regex did not match');
+                throw new Error('Could not parse SELECT statement');
+            }
+        } else {
+            console.log('❌ FROM keyword not found');
+            throw new Error('Could not find FROM clause');
+        }
+        
+        // Format other clauses
+        formatted = formatted.replace(/\s+WHERE\s+/gi, '\nWHERE ');
+        formatted = formatted.replace(/\s+AND\s+/gi, '\n    AND ');
+        formatted = formatted.replace(/\s+OR\s+/gi, '\n    OR ');
+        formatted = formatted.replace(/\s+ORDER\s+BY\s+/gi, '\nORDER BY ');
+        formatted = formatted.replace(/\s+GROUP\s+BY\s+/gi, '\nGROUP BY ');
+        formatted = formatted.replace(/\s+HAVING\s+/gi, '\nHAVING ');
+        formatted = formatted.replace(/\s+LIMIT\s+/gi, '\nLIMIT ');
+        formatted = formatted.replace(/\s+OFFSET\s+/gi, '\nOFFSET ');
+        
+        console.log('🔧 Final formatted query:', formatted);
+        return formatted.trim();
+    }
+
+    // Split fields respecting parentheses
+    splitFields(fieldsStr) {
+        const fields = [];
+        let current = '';
+        let parenCount = 0;
+        let inString = false;
+        let stringChar = '';
+        
+        for (let i = 0; i < fieldsStr.length; i++) {
+            const char = fieldsStr[i];
+            
+            if (!inString && (char === '"' || char === "'")) {
+                inString = true;
+                stringChar = char;
+                current += char;
+            } else if (inString && char === stringChar) {
+                inString = false;
+                current += char;
+            } else if (inString) {
+                current += char;
+            } else if (char === '(') {
+                parenCount++;
+                current += char;
+            } else if (char === ')') {
+                parenCount--;
+                current += char;
+            } else if (char === ',' && parenCount === 0) {
+                if (current.trim()) {
+                    fields.push(current.trim());
+                    current = '';
+                }
+            } else {
+                current += char;
+            }
+        }
+        
+        if (current.trim()) {
+            fields.push(current.trim());
+        }
+        
+        return fields;
+    }
+
+    // Intelligently wrap fields when line gets too long
+    wrapFieldsIntelligently(fields) {
+        const maxLineLength = 80;
+        let currentLine = '';
+        const lines = [];
+        
+        fields.forEach((field, index) => {
+            const fieldWithComma = (index === 0) ? field : ', ' + field;
+            
+            // Check if adding this field would exceed line length
+            if (currentLine.length + fieldWithComma.length > maxLineLength && currentLine.length > 0) {
+                // Save current line and start new one with proper indentation
+                lines.push(currentLine);
+                currentLine = '\t' + field; // Start new line with tab and field (no comma at start)
+            } else {
+                currentLine += fieldWithComma;
+            }
+        });
+        
+        // Add the last line
+        if (currentLine) {
+            lines.push(currentLine);
+        }
+        
+        return lines.join(',\n');
+    }
+
+    // Wrap subquery fields with proper indentation
+    wrapSubqueryFields(fields) {
+        const maxLineLength = 60; // Shorter for subqueries due to extra indentation
+        let currentLine = '';
+        const lines = [];
+        
+        fields.forEach((field, index) => {
+            const fieldWithComma = (index === 0) ? field : ', ' + field;
+            
+            // Check if adding this field would exceed line length
+            if (currentLine.length + fieldWithComma.length > maxLineLength && currentLine.length > 0) {
+                // Save current line and start new one with proper indentation for subqueries
+                lines.push(currentLine);
+                currentLine = '\t\t\t' + field; // Extra indentation for subquery fields
+            } else {
+                currentLine += fieldWithComma;
+            }
+        });
+        
+        // Add the last line
+        if (currentLine) {
+            lines.push(currentLine);
+        }
+        
+        return lines.join(',\n');
+    }
+
+    // Format subquery with proper indentation
+    formatSubquery(field, isFirstField) {
+        const baseIndent = isFirstField ? '' : '\t';
+        
+        // Find the opening parenthesis
+        const parenIndex = field.indexOf('(');
+        if (parenIndex === -1) return field;
+        
+        const afterParen = field.substring(parenIndex + 1);
+        
+        // Find matching closing parenthesis
+        let parenCount = 1;
+        let subqueryEnd = -1;
+        
+        for (let i = 0; i < afterParen.length; i++) {
+            if (afterParen[i] === '(') parenCount++;
+            if (afterParen[i] === ')') {
+                parenCount--;
+                if (parenCount === 0) {
+                    subqueryEnd = i;
+                    break;
+                }
+            }
+        }
+        
+        if (subqueryEnd === -1) return field;
+        
+        const subquery = afterParen.substring(0, subqueryEnd).trim();
+        const suffix = afterParen.substring(subqueryEnd + 1).trim();
+        
+        // Parse the subquery to format it properly
+        const subqueryMatch = subquery.match(/SELECT\s+([^FROM]+?)\s+FROM\s+(.+)$/i);
+        if (subqueryMatch) {
+            const [, subFields, subFrom] = subqueryMatch;
+            const fieldList = this.splitFields(subFields.trim());
+            
+            // Format subquery fields like main fields - on same line, wrap if too long
+            let formattedSubFields = '';
+            const subFieldsLine = fieldList.join(', ');
+            if (subFieldsLine.length > 60) { // Shorter limit for subqueries due to indentation
+                formattedSubFields = this.wrapSubqueryFields(fieldList);
+            } else {
+                formattedSubFields = subFieldsLine;
+            }
+            
+            // Create formatted subquery with proper structure
+            const formattedSubquery = `SELECT ${formattedSubFields}\n\t\tFROM ${subFrom.trim()}`;
+            
+            return baseIndent + '(\n\t\t' + formattedSubquery + '\n\t)' + (suffix ? ' ' + suffix : '');
+        }
+        
+        // Fallback if regex doesn't match
+        return baseIndent + field;
+    }
+
+    handleClear() {
+        // Clear query and reset state
+        this.query = '';
+        this.results = [];
+        this.columns = [];
+        this.error = '';
+        this.selectedFields.clear();
+        this.selectedSubqueries.clear();
+        this.childRelationshipResults = new Map();
+        this.expandedChildRelationships = new Set();
+        
+        // Reset UI
+        this.showResults = false;
+        this.showChildResults = false;
+        this.currentChildRelData = null;
+        this.currentChildRelTitle = '';
+        
+        this.showToast('Success', 'Query cleared successfully', 'success');
+    }
+
+    // Dynamic height adjustment from Medium article
+    handleTextareaInput(event) {
+        const textarea = event.target;
+        if (textarea) {
+            // Reset height to auto to get the scroll height
+            textarea.style.height = 'auto';
+            // Set height based on content, with min/max constraints
+            const newHeight = Math.max(225, Math.min(400, textarea.scrollHeight));
+            textarea.style.height = newHeight + 'px';
         }
     }
 
     handleExportCSV() {
-        if (!this.results.length) return;
-        const columns = this.columns.map(col => col.fieldName);
-        let csv = columns.join(',') + '\n';
-        this.results.forEach(row => {
-            csv += columns.map(col => '"' + (row[col] || '') + '"').join(',') + '\n';
+        if (!this.results.length) {
+            this.showToast('Warning', 'No data to export', 'warning');
+            return;
+        }
+
+        if (!this.sheetJSInitialized) {
+            this.showToast('Error', 'Export library not loaded. Please refresh and try again.', 'error');
+            return;
+        }
+
+        try {
+            // For CSV, we'll create a zip file with multiple CSV files if there are child relationships
+            const hasChildRelationships = this.checkForChildRelationships();
+            
+            if (hasChildRelationships) {
+                // Create multiple CSV files in a zip
+                this.exportMultipleCSVFiles();
+            } else {
+                // Single CSV file
+                this.exportSingleCSV();
+            }
+            
+        } catch (error) {
+            console.error('Export error:', error);
+            this.showToast('Error', 'Failed to export data: ' + error.message, 'error');
+        }
+    }
+
+    // Check if there are child relationships in the data
+    checkForChildRelationships() {
+        if (!this.rawQueryResults || this.rawQueryResults.length === 0) {
+            return false;
+        }
+        
+        return this.rawQueryResults.some(record => {
+            return Object.keys(record).some(fieldName => {
+                const value = record[fieldName];
+                return value && (Array.isArray(value) || (typeof value === 'object' && value.totalSize !== undefined));
+            });
         });
-        const blob = new Blob([csv], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'soql_results.csv';
-        a.click();
-        URL.revokeObjectURL(url);
+    }
+
+    // Export single CSV file (when no child relationships)
+    exportSingleCSV() {
+        const exportData = this.prepareMainExportData();
+        
+        // Create workbook and worksheet
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        
+        // Add worksheet to workbook
+        XLSX.utils.book_append_sheet(wb, ws, 'SOQL Results');
+        
+        // Generate filename with timestamp
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+        const filename = `soql_export_${timestamp}.csv`;
+        
+        // Export as CSV
+        XLSX.writeFile(wb, filename);
+        
+        this.showToast('Success', `Data exported successfully as ${filename}`, 'success');
+    }
+
+    // Export multiple CSV files when child relationships exist
+    exportMultipleCSVFiles() {
+        // For now, just export the main CSV and show a message about Excel for full data
+        this.exportSingleCSV();
+        
+        this.showToast('Info', 
+            'Child relationship data detected. For complete data export with child relationships in separate sheets, use Excel export.', 
+            'info');
+    }
+
+    handleExportExcel() {
+        if (!this.results.length) {
+            this.showToast('Warning', 'No data to export', 'warning');
+            return;
+        }
+
+        if (!this.sheetJSInitialized) {
+            this.showToast('Error', 'Export library not loaded. Please refresh and try again.', 'error');
+            return;
+        }
+
+        try {
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+            
+            // 1. First, prepare child relationship sheets to know which ones exist
+            const childSheets = this.prepareChildRelationshipSheets();
+            
+            // 2. Main Results Sheet with hyperlinks
+            const mainExportData = this.prepareMainExportDataWithLinks(childSheets);
+            const mainWS = XLSX.utils.json_to_sheet(mainExportData);
+            
+            // Enhanced formatting for main sheet
+            const mainColumnWidths = mainExportData.length > 0 ? 
+                Object.keys(mainExportData[0]).map(key => {
+                    const maxLength = Math.max(
+                        key.length,
+                        ...mainExportData.slice(0, 100).map(row => 
+                            String(row[key] || '').length
+                        )
+                    );
+                    return { wch: Math.min(Math.max(maxLength, 12), 50) };
+                }) : [];
+            mainWS['!cols'] = mainColumnWidths;
+            
+            // Add header styling and hyperlinks for main sheet
+            this.applyHeaderStyling(mainWS);
+            this.addHyperlinksToMainSheet(mainWS, mainExportData, childSheets);
+            
+            // Add main sheet to workbook
+            XLSX.utils.book_append_sheet(wb, mainWS, 'Main Results');
+            
+            // 3. Child Relationship Sheets
+            childSheets.forEach(({ sheetName, data }) => {
+                if (data && data.length > 0) {
+                    const childWS = XLSX.utils.json_to_sheet(data);
+                    
+                    // Auto-size columns for child sheets
+                    const childColumnWidths = Object.keys(data[0]).map(key => {
+                        const maxLength = Math.max(
+                            key.length,
+                            ...data.slice(0, 100).map(row => 
+                                String(row[key] || '').length
+                            )
+                        );
+                        return { wch: Math.min(Math.max(maxLength, 12), 50) };
+                    });
+                    childWS['!cols'] = childColumnWidths;
+                    
+                    // Apply styling
+                    this.applyHeaderStyling(childWS);
+                    
+                    // Add visual separators between different parent records
+                    this.addParentGroupSeparators(childWS, data);
+                    
+                    // Add back-to-main link in child sheet
+                    this.addBackToMainLink(childWS);
+                    
+                    // Add child sheet with truncated name (Excel sheet name limit is 31 chars)
+                    const truncatedSheetName = sheetName.length > 31 ? 
+                        sheetName.substring(0, 28) + '...' : sheetName;
+                    XLSX.utils.book_append_sheet(wb, childWS, truncatedSheetName);
+                }
+            });
+            
+            // 4. Navigation Guide Sheet
+            this.addNavigationGuideSheet(wb, childSheets);
+            
+            // 5. Metadata Sheet
+            const metaData = [
+                { Property: 'Export Date', Value: new Date().toLocaleString() },
+                { Property: 'SOQL Query', Value: this.query },
+                { Property: 'Total Main Records', Value: this.results.length },
+                { Property: 'Selected Object', Value: this.selectedSObject || 'N/A' },
+                { Property: 'Child Relationships Found', Value: childSheets.length },
+                { Property: 'Sheets Created', Value: wb.SheetNames.length },
+                { Property: 'Navigation', Value: 'Click on child relationship counts in Main Results to jump to child data sheets' }
+            ];
+            const metaWS = XLSX.utils.json_to_sheet(metaData);
+            XLSX.utils.book_append_sheet(wb, metaWS, 'Export Info');
+            
+            // Generate filename with timestamp
+            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+            const filename = `soql_export_${timestamp}.xlsx`;
+            
+            // Export Excel file
+            XLSX.writeFile(wb, filename);
+            
+            const totalRecords = childSheets.reduce((sum, sheet) => sum + (sheet.data?.length || 0), this.results.length);
+            this.showToast('Success', 
+                `Data exported successfully as ${filename}. ${wb.SheetNames.length} sheets created with ${totalRecords} total records. Click on child relationship counts to navigate between sheets.`, 
+                'success');
+            
+        } catch (error) {
+            console.error('Export error:', error);
+            this.showToast('Error', 'Failed to export data: ' + error.message, 'error');
+        }
+    }
+
+    // Prepare main export data with enhanced formatting for hyperlinks
+    prepareMainExportDataWithLinks(childSheets) {
+        const availableChildSheets = new Set(childSheets.map(sheet => sheet.sheetName));
+        
+        return this.results.map((row, rowIndex) => {
+            const exportRow = {};
+            
+            this.columns.forEach(col => {
+                const fieldName = col.fieldName;
+                let value = row[fieldName];
+                
+                // Handle null/undefined values
+                if (value === null || value === undefined) {
+                    value = '';
+                }
+                // For subquery columns, enhance with navigation hint
+                else if (typeof value === 'string' && value.match(/^\d+ rows?$/)) {
+                    // Check if this field has a corresponding child sheet
+                    if (availableChildSheets.has(fieldName)) {
+                        value = `${value} (Click to view details)`; // Add hint for user
+                    }
+                }
+                // Handle complex objects by converting to string
+                else if (typeof value === 'object') {
+                    value = JSON.stringify(value);
+                }
+                // Handle boolean values
+                else if (typeof value === 'boolean') {
+                    value = value.toString();
+                }
+                // Convert numbers to string to preserve formatting
+                else if (typeof value === 'number') {
+                    value = value.toString();
+                }
+                
+                // Use column label as the export column name
+                const exportColumnName = col.label || fieldName;
+                exportRow[exportColumnName] = value;
+            });
+            
+            // Add row identifier for linking
+            exportRow._rowIndex = rowIndex;
+            exportRow._fieldMapping = {}; // Store original field names for linking
+            this.columns.forEach(col => {
+                exportRow._fieldMapping[col.label || col.fieldName] = col.fieldName;
+            });
+            
+            return exportRow;
+        });
+    }
+
+    // Add hyperlinks to cells in the main sheet that link to child relationship sheets
+    addHyperlinksToMainSheet(worksheet, exportData, childSheets) {
+        if (!worksheet['!ref'] || exportData.length === 0) return;
+        
+        const availableChildSheets = new Map();
+        childSheets.forEach(sheet => {
+            const truncatedName = sheet.sheetName.length > 31 ? 
+                sheet.sheetName.substring(0, 28) + '...' : sheet.sheetName;
+            availableChildSheets.set(sheet.sheetName, truncatedName);
+        });
+        
+        const range = XLSX.utils.decode_range(worksheet['!ref']);
+        const headers = Object.keys(exportData[0]).filter(key => !key.startsWith('_'));
+        
+        // Go through each data row (skip header row)
+        for (let row = 1; row <= range.e.r; row++) {
+            const dataRowIndex = row - 1;
+            if (dataRowIndex >= exportData.length) break;
+            
+            const rowData = exportData[dataRowIndex];
+            
+            // Check each column for child relationship data
+            headers.forEach((header, colIndex) => {
+                const cellValue = rowData[header];
+                const originalFieldName = rowData._fieldMapping ? rowData._fieldMapping[header] : header;
+                
+                // If this is a child relationship column with data
+                if (typeof cellValue === 'string' && 
+                    cellValue.includes('rows') && 
+                    cellValue.includes('Click to view') &&
+                    availableChildSheets.has(originalFieldName)) {
+                    
+                    const cellAddress = XLSX.utils.encode_cell({ r: row, c: colIndex });
+                    const targetSheet = availableChildSheets.get(originalFieldName);
+                    const parentRowNum = row + 1; // Excel row number including header
+                    
+                    // Find the starting row for this parent's data in the child sheet
+                    const childSheet = childSheets.find(sheet => sheet.sheetName === originalFieldName);
+                    const targetRow = this.findChildSheetStartRow(childSheet, parentRowNum);
+                    
+                    // Create hyperlink to specific row in child sheet
+                    worksheet[cellAddress] = {
+                        t: 's', // string type
+                        v: cellValue.replace(' (Click to view details)', ''), // Clean display value
+                        l: {
+                            Target: `#'${targetSheet}'!A${targetRow}`, // Link to specific row in child sheet
+                            Tooltip: `Click to jump to ${originalFieldName} data for row ${parentRowNum} (starts at row ${targetRow})`
+                        },
+                        s: {
+                            font: { color: { rgb: "0000FF" }, underline: true }, // Blue and underlined
+                            fill: { fgColor: { rgb: "F0F8FF" } } // Light blue background
+                        }
+                    };
+                }
+            });
+        }
+    }
+
+    // Find the starting row for a specific parent's data in a child sheet
+    findChildSheetStartRow(childSheet, parentRowNumber) {
+        if (!childSheet || !childSheet.data || childSheet.data.length === 0) {
+            return 1; // Default to top if no data
+        }
+        
+        // Find the first occurrence of this parent row number in the child data
+        const firstMatchIndex = childSheet.data.findIndex(childRecord => 
+            childRecord.Parent_Row_Number === parentRowNumber
+        );
+        
+        if (firstMatchIndex === -1) {
+            return 1; // Default to top if parent not found
+        }
+        
+        // Add 2 to convert from 0-based array index to Excel row (1-based + header row)
+        return firstMatchIndex + 2;
+    }
+
+    // Add a back-to-main navigation link in child sheets
+    addBackToMainLink(worksheet) {
+        if (!worksheet['!ref']) return;
+        
+        const range = XLSX.utils.decode_range(worksheet['!ref']);
+        
+        // Add navigation instructions in a cell below the data
+        const navRow = range.e.r + 3; // Leave some space
+        const navCell = XLSX.utils.encode_cell({ r: navRow, c: 0 });
+        
+        worksheet[navCell] = {
+            t: 's',
+            v: '← Back to Main Results',
+            l: {
+                Target: "#'Main Results'!A1",
+                Tooltip: 'Click to return to main results sheet'
+            },
+            s: {
+                font: { color: { rgb: "0000FF" }, underline: true, bold: true },
+                fill: { fgColor: { rgb: "E8F5E8" } }
+            }
+        };
+        
+        // Update the sheet range to include the navigation cell
+        const newRange = XLSX.utils.encode_range({
+            s: range.s,
+            e: { r: navRow, c: Math.max(range.e.c, 0) }
+        });
+        worksheet['!ref'] = newRange;
+    }
+
+    // Add a navigation guide sheet
+    addNavigationGuideSheet(workbook, childSheets) {
+        const guideData = [
+            { Section: 'NAVIGATION GUIDE', Description: 'How to use this workbook effectively' },
+            { Section: '', Description: '' },
+            { Section: 'Main Results Sheet', Description: 'Contains your primary SOQL query results' },
+            { Section: '• Child Relationship Cells', Description: 'Blue underlined cells (e.g., "3 rows") are clickable' },
+            { Section: '• Click Links', Description: 'Click on these cells to jump to detailed child data' },
+            { Section: '', Description: '' },
+            { Section: 'Child Relationship Sheets', Description: 'Separate sheets for each child relationship' },
+            { Section: '• Parent Context', Description: 'Each row shows which parent record it belongs to' },
+            { Section: '• Back Navigation', Description: 'Click "← Back to Main Results" to return' },
+            { Section: '', Description: '' },
+            { Section: 'Available Child Sheets:', Description: '' }
+        ];
+        
+        // Add information about each child sheet
+        childSheets.forEach((sheet, index) => {
+            const truncatedName = sheet.sheetName.length > 31 ? 
+                sheet.sheetName.substring(0, 28) + '...' : sheet.sheetName;
+            guideData.push({
+                Section: `${index + 1}. ${truncatedName}`,
+                Description: `${sheet.data?.length || 0} child records`
+            });
+        });
+        
+        if (childSheets.length === 0) {
+            guideData.push({
+                Section: 'No child relationships found',
+                Description: 'This export contains only main object data'
+            });
+        }
+        
+        const guideWS = XLSX.utils.json_to_sheet(guideData);
+        
+        // Format the guide sheet
+        const guideRange = XLSX.utils.decode_range(guideWS['!ref']);
+        guideWS['!cols'] = [{ wch: 25 }, { wch: 50 }];
+        
+        // Add styling to the guide sheet
+        for (let row = 0; row <= guideRange.e.r; row++) {
+            const sectionCell = guideWS[XLSX.utils.encode_cell({ r: row, c: 0 })];
+            if (sectionCell && sectionCell.v && sectionCell.v.includes('GUIDE')) {
+                sectionCell.s = {
+                    font: { bold: true, size: 14 },
+                    fill: { fgColor: { rgb: "4472C4" } },
+                    font: { color: { rgb: "FFFFFF" }, bold: true }
+                };
+            }
+        }
+        
+        XLSX.utils.book_append_sheet(workbook, guideWS, 'Navigation Guide');
+    }
+
+    // Prepare main export data (excluding child relationship raw data)
+    prepareMainExportData() {
+        return this.results.map(row => {
+            const exportRow = {};
+            
+            this.columns.forEach(col => {
+                const fieldName = col.fieldName;
+                let value = row[fieldName];
+                
+                // Handle null/undefined values
+                if (value === null || value === undefined) {
+                    value = '';
+                }
+                // For subquery columns, keep the summary (e.g., "3 rows")
+                else if (typeof value === 'string' && value.match(/^\d+ rows?$/)) {
+                    // Keep as is - this is a subquery summary
+                }
+                // Handle complex objects by converting to string
+                else if (typeof value === 'object') {
+                    value = JSON.stringify(value);
+                }
+                // Handle boolean values
+                else if (typeof value === 'boolean') {
+                    value = value.toString();
+                }
+                // Convert numbers to string to preserve formatting
+                else if (typeof value === 'number') {
+                    value = value.toString();
+                }
+                
+                // Use column label as the export column name
+                const exportColumnName = col.label || fieldName;
+                exportRow[exportColumnName] = value;
+            });
+            
+            return exportRow;
+        });
+    }
+
+    // Prepare child relationship sheets from raw query results
+    prepareChildRelationshipSheets() {
+        const childSheets = [];
+        
+        if (!this.rawQueryResults || this.rawQueryResults.length === 0) {
+            return childSheets;
+        }
+        
+        // Find all child relationship fields by examining the raw data
+        const childRelationshipFields = new Set();
+        
+        this.rawQueryResults.forEach(record => {
+            Object.keys(record).forEach(fieldName => {
+                const value = record[fieldName];
+                // Check if this is child relationship data
+                if (value && (Array.isArray(value) || (typeof value === 'object' && value.totalSize !== undefined))) {
+                    childRelationshipFields.add(fieldName);
+                }
+            });
+        });
+        
+        console.log('Found child relationship fields:', Array.from(childRelationshipFields));
+        
+        // Create a sheet for each child relationship
+        childRelationshipFields.forEach(relationshipName => {
+            const childData = [];
+            
+            this.rawQueryResults.forEach((parentRecord, parentIndex) => {
+                const childRecords = parentRecord[relationshipName];
+                let records = [];
+                
+                // Handle both array and object with records property
+                if (Array.isArray(childRecords)) {
+                    records = childRecords;
+                } else if (childRecords && childRecords.records && Array.isArray(childRecords.records)) {
+                    records = childRecords.records;
+                }
+                
+                // Add each child record with parent context
+                records.forEach(childRecord => {
+                    const exportChildRecord = {
+                        'Parent_Row_Number': parentIndex + 2, // +2 because: +1 for header row, +1 for 0-based to 1-based conversion
+                        'Parent_Id': parentRecord.Id || 'N/A',
+                        'Parent_Name': parentRecord.Name || parentRecord.Subject || parentRecord.Title || 'N/A'
+                    };
+                    
+                    // Add all child record fields
+                    Object.keys(childRecord).forEach(childFieldName => {
+                        if (childFieldName !== 'attributes') {
+                            let value = childRecord[childFieldName];
+                            
+                            // Clean up the value
+                            if (value === null || value === undefined) {
+                                value = '';
+                            } else if (typeof value === 'object') {
+                                value = JSON.stringify(value);
+                            } else if (typeof value === 'boolean') {
+                                value = value.toString();
+                            }
+                            
+                            exportChildRecord[childFieldName] = value;
+                        }
+                    });
+                    
+                    childData.push(exportChildRecord);
+                });
+            });
+            
+            if (childData.length > 0) {
+                // Sort child data by Parent_Row_Number to ensure proper grouping and navigation
+                childData.sort((a, b) => {
+                    const parentRowA = parseInt(a.Parent_Row_Number) || 0;
+                    const parentRowB = parseInt(b.Parent_Row_Number) || 0;
+                    if (parentRowA !== parentRowB) {
+                        return parentRowA - parentRowB;
+                    }
+                    // Secondary sort by child record Id for consistency
+                    const idA = a.Id || '';
+                    const idB = b.Id || '';
+                    return idA.localeCompare(idB);
+                });
+                
+                childSheets.push({
+                    sheetName: relationshipName,
+                    data: childData
+                });
+            }
+        });
+        
+        return childSheets;
+    }
+
+    // Add visual separators between different parent records in child sheets
+    addParentGroupSeparators(worksheet, data) {
+        if (!worksheet['!ref'] || data.length === 0) return;
+        
+        const range = XLSX.utils.decode_range(worksheet['!ref']);
+        let currentParentRow = null;
+        
+        // Go through each data row and add styling to separate parent groups
+        for (let row = 1; row <= range.e.r; row++) { // Start from 1 to skip header
+            const dataIndex = row - 1;
+            if (dataIndex >= data.length) break;
+            
+            const rowData = data[dataIndex];
+            const parentRowNumber = rowData.Parent_Row_Number;
+            
+            // If this is a new parent record group, add a top border
+            if (currentParentRow !== null && currentParentRow !== parentRowNumber) {
+                // Add thick top border to indicate new parent group
+                for (let col = range.s.c; col <= range.e.c; col++) {
+                    const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+                    const cell = worksheet[cellAddress];
+                    if (cell) {
+                        if (!cell.s) cell.s = {};
+                        if (!cell.s.border) cell.s.border = {};
+                        cell.s.border.top = { style: 'thick', color: { rgb: '4472C4' } };
+                    }
+                }
+            }
+            
+            // Highlight Parent_Row_Number column for easier identification
+            const parentRowCell = worksheet[XLSX.utils.encode_cell({ r: row, c: 0 })]; // Assuming first column
+            if (parentRowCell && currentParentRow !== parentRowNumber) {
+                if (!parentRowCell.s) parentRowCell.s = {};
+                parentRowCell.s.fill = { fgColor: { rgb: "E8F5E8" } }; // Light green background
+                parentRowCell.s.font = { bold: true };
+            }
+            
+            currentParentRow = parentRowNumber;
+        }
+    }
+
+    // Apply header styling to a worksheet
+    applyHeaderStyling(worksheet) {
+        if (!worksheet['!ref']) return;
+        
+        const range = XLSX.utils.decode_range(worksheet['!ref']);
+        for (let col = range.s.c; col <= range.e.c; col++) {
+            const headerCell = worksheet[XLSX.utils.encode_cell({ r: 0, c: col })];
+            if (headerCell) {
+                headerCell.s = {
+                    font: { bold: true },
+                    fill: { fgColor: { rgb: "E3F2FD" } }
+                };
+            }
+        }
+    }
+
+    // Helper method to show toast messages
+    showToast(title, message, variant) {
+        const evt = new ShowToastEvent({
+            title: title,
+            message: message,
+            variant: variant
+        });
+        this.dispatchEvent(evt);
     }
 }
