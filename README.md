@@ -1,18 +1,54 @@
-# Salesforce DX Project: Next Steps
+# SOQL App
 
-Now that you’ve created a Salesforce DX project, what’s next? Here are some documentation resources to get you started.
+A powerful Salesforce SOQL query builder and executor built with Lightning Web Components.
 
-## How Do You Plan to Deploy Your Changes?
+## Features
 
-Do you want to deploy a set of changes, or create a self-contained application? Choose a [development model](https://developer.salesforce.com/tools/vscode/en/user-guide/development-models).
+- **Interactive SOQL Builder**: Visual interface for building complex SOQL queries
+- **Real-time Query Execution**: Execute queries with immediate results
+- **Export Functionality**: Export query results to Excel/CSV
+- **Enhanced UX**: Clean, modern interface with improved Clear button functionality
+- **Production Ready**: Comprehensive test coverage and security validation
 
-## Configure Your Salesforce DX Project
+## Attribution
 
-The `sfdx-project.json` file contains useful configuration information for your project. See [Salesforce DX Project Configuration](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_ws_config.htm) in the _Salesforce DX Developer Guide_ for details about this file.
+This project builds upon the excellent foundation of [lwc-soql-builder](https://github.com/atskimura/lwc-soql-builder) by Atsuhiko Kimura, licensed under the MIT License.
 
-## Read All About It
+### Major Enhancements:
+- Complete code cleanup and performance optimization  
+- Enhanced Clear button resets left pane state
+- 94%+ test coverage on core Apex classes
+- Production-ready security validation
+- Modern component design and UX improvements
 
-- [Salesforce Extensions Documentation](https://developer.salesforce.com/tools/vscode/)
-- [Salesforce CLI Setup Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_setup.meta/sfdx_setup/sfdx_setup_intro.htm)
-- [Salesforce DX Developer Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_intro.htm)
-- [Salesforce CLI Command Reference](https://developer.salesforce.com/docs/atlas.en-us.sfdx_cli_reference.meta/sfdx_cli_reference/cli_reference.htm)
+## Installation
+
+1. Clone this repository
+2. Deploy to your Salesforce org using `sf project deploy start`
+3. Assign the `SOQL_Runner_User` permission set to users
+4. Access via the SOQL Runner app or add to utility bar
+
+## License
+
+MIT License - see [LICENSE](LICENSE) file for details.
+
+Original lwc-soql-builder: Copyright (c) 2020 Atsuhiko Kimura  
+SOQL App enhancements: Copyright (c) 2025 CodeCommands
+
+## Technical Details
+
+### Apex Classes:
+- `CodeBuddhaSOQLMeta` - SObject metadata retrieval (94% test coverage)
+- `CodeBuddhaSOQLRunner` - Secure SOQL execution (82% test coverage)
+
+### Lightning Web Component:
+- `soqlRunner` - Main query builder interface
+
+### Security Features:
+- DML operation blocking
+- Field-level security validation
+- Permission-based object access
+
+## Development
+
+This project follows Salesforce DX development model. See [Salesforce DX Developer Guide](https://developer.salesforce.com/docs/atlas.en-us.sfdx_dev.meta/sfdx_dev/sfdx_dev_intro.htm) for more details.
