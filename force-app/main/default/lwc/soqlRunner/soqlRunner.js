@@ -1111,6 +1111,15 @@ export default class SoqlRunner extends LightningElement {
         this.showFieldsTab = true;
         this.showChildRelTab = false;
         
+        // Reset field-related properties
+        this.sobjectFields = [];
+        this.filteredFields = [];
+        this.expandedFields = {};
+        this.sobjectChildRels = [];
+        this.childRelationshipData = [];
+        this.childRelationshipTitle = '';
+        this.childDataTableColumns = [];
+        
         // Reset UI
         this.showResults = false;
         this.showChildResults = false;
