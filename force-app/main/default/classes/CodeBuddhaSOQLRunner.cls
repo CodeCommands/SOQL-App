@@ -251,6 +251,38 @@ public with sharing class CodeBuddhaSOQLRunner {
                 }
                 
                 recordMap.put(fieldName, childMaps);
+            }
+            // Check if this is a parent relationship (SObject)
+            else if (fieldValue instanceof SObject) {
+                SObject parentRecord = (SObject) fieldValue;
+                
+                // Flatten parent relationship fields with dot notation
+                Map<String, Object> parentFields = parentRecord.getPopulatedFieldsAsMap();
+                for (String parentFieldName : parentFields.keySet()) {
+                    Object parentFieldValue = parentFields.get(parentFieldName);
+                    
+                    // Skip attributes field
+                    if (parentFieldName == 'attributes') continue;
+                    
+                    // Handle nested relationships recursively
+                    if (parentFieldValue instanceof SObject) {
+                        SObject nestedParent = (SObject) parentFieldValue;
+                        Map<String, Object> nestedFields = nestedParent.getPopulatedFieldsAsMap();
+                        for (String nestedFieldName : nestedFields.keySet()) {
+                            if (nestedFieldName != 'attributes') {
+                                String flattenedName = fieldName + '.' + parentFieldName + '.' + nestedFieldName;
+                                recordMap.put(flattenedName, nestedFields.get(nestedFieldName));
+                            }
+                        }
+                    } else {
+                        // Create flattened field name with dot notation
+                        String flattenedName = fieldName + '.' + parentFieldName;
+                        recordMap.put(flattenedName, parentFieldValue);
+                    }
+                }
+                
+                // Keep the original nested structure for backward compatibility
+                recordMap.put(fieldName, fieldValue);
             } else {
                 recordMap.put(fieldName, fieldValue);
             }

@@ -204,6 +204,18 @@
                     <lightning-button label="Format SOQL" onclick={handleFormatSOQL} class="slds-m-right_x-small"></lightning-button>
                     <lightning-button label="Clear" onclick={handleClear} variant="destructive"></lightning-button>
                 </div>
+                <div class="slds-col_bump-left slds-size_1-of-6">
+                    <lightning-input 
+                        type="number" 
+                        label="Limit Rows" 
+                        value={queryLimit} 
+                        onchange={handleLimitChange}
+                        placeholder="Enter limit"
+                        min="1"
+                        max="50000"
+                        field-level-help="Limit the number of rows returned (1-50,000). Leave empty for no limit.">
+                    </lightning-input>
+                </div>
             </div>
             <div class="soql-editor-container">
                 <lightning-textarea 

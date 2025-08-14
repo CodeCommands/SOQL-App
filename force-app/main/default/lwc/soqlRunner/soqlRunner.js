@@ -43,6 +43,8 @@ export default class SoqlRunner extends LightningElement {
 
     // Query and Results
     @track query = '';
+    @track queryLimit = '';
+    @track finalQuery = ''; // Query with limit applied
     @track results = [];
     @track error = '';
     @track columns = [];
@@ -508,6 +510,10 @@ export default class SoqlRunner extends LightningElement {
         this.query = event.target.value;
     }
 
+    handleLimitChange(event) {
+        this.queryLimit = event.target.value;
+    }
+
     handleRun() {
         this.executeQuery(false);
     }
@@ -531,9 +537,12 @@ export default class SoqlRunner extends LightningElement {
             return;
         }
 
+        // Prepare query with limit if specified
+        this.finalQuery = this.prepareQueryWithLimit(this.query);
+
         const queryMethod = useAllRows ? runSOQLAll : runSOQL;
         
-        queryMethod({ soql: this.query })
+        queryMethod({ soql: this.finalQuery })
             .then(data => {
                 this.processQueryResults(data);
                 
@@ -558,7 +567,7 @@ export default class SoqlRunner extends LightningElement {
     setupPagination() {
         if (this.results.length >= this.pageSize) {
             runSOQLPaginated({ 
-                soql: this.query, 
+                soql: this.finalQuery, 
                 pageSize: this.pageSize, 
                 offset: 0 
             })
@@ -589,7 +598,7 @@ export default class SoqlRunner extends LightningElement {
         const offset = (pageNumber - 1) * this.pageSize;
 
         runSOQLPaginated({ 
-            soql: this.query, 
+            soql: this.finalQuery, 
             pageSize: this.pageSize, 
             offset: offset 
         })
@@ -753,9 +762,110 @@ export default class SoqlRunner extends LightningElement {
         
         // Convert column map to flat column list
         const columns = [];
-        this._flattenColumnMap(columnMap, columns, []);
+        this._flattenColumnMap(columnMap, columns);
         
-        return columns;
+        // Filter columns to only include fields that were explicitly requested in the SELECT clause
+        const requestedFields = this.parseSelectFields(this.query);
+        
+        const filteredColumns = columns.filter(column => {
+            const isRequested = requestedFields.includes(column);
+            return isRequested;
+        });
+        
+        return filteredColumns;
+    }
+    
+    // Helper method to prepare query with limit if specified
+    prepareQueryWithLimit(query) {
+        if (!this.queryLimit || this.queryLimit.trim() === '') {
+            return query;
+        }
+        
+        const limitValue = parseInt(this.queryLimit, 10);
+        if (isNaN(limitValue) || limitValue <= 0) {
+            return query;
+        }
+        
+        // Check if query already has LIMIT clause (case insensitive)
+        const hasLimit = /\bLIMIT\s+\d+/i.test(query);
+        
+        if (hasLimit) {
+            // Replace existing LIMIT with new value
+            return query.replace(/\bLIMIT\s+\d+/i, `LIMIT ${limitValue}`);
+        }
+        
+        // Add LIMIT clause at the end
+        return `${query.trim()} LIMIT ${limitValue}`;
+    }
+    
+    // Parse SOQL query to extract the fields from SELECT clause
+    parseSelectFields(query) {
+        if (!query || typeof query !== 'string') return [];
+        
+        try {
+            // Extract the SELECT clause (case insensitive)
+            const selectMatch = query.match(/SELECT\s+(.*?)\s+FROM(?:\s+\w+)?(?:\s+WHERE|$)/i);
+            if (!selectMatch) return [];
+            
+            const selectClause = selectMatch[1];
+            
+            // Handle parentheses for subqueries - split by commas but respect parentheses
+            const fields = [];
+            let parenCount = 0;
+            let currentField = '';
+            
+            for (let i = 0; i < selectClause.length; i++) {
+                const char = selectClause[i];
+                
+                if (char === '(') {
+                    parenCount++;
+                    currentField += char;
+                } else if (char === ')') {
+                    parenCount--;
+                    currentField += char;
+                } else if (char === ',' && parenCount === 0) {
+                    // We're at a comma outside any parentheses, this marks a field boundary
+                    const fieldName = this.extractFieldNameFromSelect(currentField.trim());
+                    if (fieldName) fields.push(fieldName);
+                    currentField = '';
+                } else {
+                    currentField += char;
+                }
+            }
+            
+            // Don't forget the last field
+            if (currentField.trim()) {
+                const fieldName = this.extractFieldNameFromSelect(currentField.trim());
+                if (fieldName) fields.push(fieldName);
+            }
+            
+            return fields;
+        } catch (error) {
+            console.error('Error parsing SELECT fields:', error);
+            return [];
+        }
+    }
+    
+    // Extract field name from a SELECT field item (handles subqueries and regular fields)
+    extractFieldNameFromSelect(fieldText) {
+        if (!fieldText) return null;
+        
+        // Check if this is a subquery (starts with parentheses)
+        if (fieldText.trim().startsWith('(')) {
+            // Extract the FROM clause from the subquery to get the relationship name
+            const fromMatch = fieldText.match(/FROM\s+(\w+)/i);
+            if (fromMatch) {
+                return fromMatch[1]; // Return the relationship name
+            }
+            return null;
+        }
+        
+        // Regular field - clean up and take only the field name (ignore aliases)
+        const cleaned = fieldText.trim()
+            .replace(/\s+/g, ' ') // Normalize whitespace
+            .split(' ')[0]; // Take only the field name (ignore aliases)
+        
+        return cleaned;
     }
     
     _collectColumnMap(record, columnMap, relationships = []) {
@@ -763,50 +873,52 @@ export default class SoqlRunner extends LightningElement {
         
         Object.keys(record).forEach(name => {
             if (name !== 'attributes') {
-                let parentMap = columnMap;
+                const data = record[name];
                 
-                // Navigate to the correct parent map
-                relationships.forEach(relation => {
-                    if (parentMap && parentMap.has && parentMap.has(relation)) {
-                        parentMap = parentMap.get(relation);
-                    } else {
-                        // If we can't navigate further, create the missing map
-                        if (parentMap && parentMap.set) {
-                            parentMap.set(relation, new Map());
-                            parentMap = parentMap.get(relation);
-                        }
+                // Check if this key is already a flattened relationship field (contains dots)
+                if (name.includes('.')) {
+                    // This is a pre-flattened field from Apex, add it directly
+                    if (!columnMap.has(name)) {
+                        columnMap.set(name, null); // Use null to indicate this is a terminal field
                     }
-                });
-                
-                // Ensure parentMap is valid before proceeding
-                if (parentMap && parentMap.has && parentMap.set) {
-                    if (!parentMap.has(name)) {
-                        parentMap.set(name, new Map());
+                }
+                // Check if this is a subquery result (array or object with totalSize)
+                else if ((Array.isArray(data)) || (data && typeof data === 'object' && data.totalSize !== undefined)) {
+                    // This is a subquery - add the relationship name as a column
+                    const fullPath = [...relationships, name].join('.');
+                    if (!columnMap.has(fullPath)) {
+                        columnMap.set(fullPath, null); // Use null to indicate this is a terminal field
                     }
+                }
+                // Only recurse if it's a nested object (not array, not subquery result, not null, not flattened)
+                else if (data && typeof data === 'object' && !data.totalSize && !Array.isArray(data) && data !== null) {
+                    // Check if we already have a flattened version of this relationship
+                    const hasFlattened = Object.keys(record).some(key => key.startsWith(name + '.'));
                     
-                    const data = record[name];
-                    // Only recurse if it's a nested object (not array, not subquery result)
-                    if (data && typeof data === 'object' && !data.totalSize && !Array.isArray(data)) {
-                        this._collectColumnMap(data, parentMap.get(name), [...relationships, name]);
+                    if (!hasFlattened) {
+                        // This is a relationship object without flattened equivalent, recurse into it
+                        this._collectColumnMap(data, columnMap, [...relationships, name]);
+                    }
+                    // If we have flattened versions, skip the nested recursion to avoid duplicates
+                } else {
+                    // This is a leaf field (actual data value), create the full path
+                    const fullPath = [...relationships, name].join('.');
+                    if (!columnMap.has(fullPath)) {
+                        columnMap.set(fullPath, null); // Use null to indicate this is a terminal field
                     }
                 }
             }
         });
     }
     
-    _flattenColumnMap(columnMap, columns, relationships = []) {
+    _flattenColumnMap(columnMap, columns) {
         if (!columnMap || typeof columnMap !== 'object' || !columnMap.size) return;
         
-        for (let [name, data] of columnMap) {
-            if (data && data.size && data.size > 0) {
-                // This has nested properties, recurse
-                this._flattenColumnMap(data, columns, [...relationships, name]);
-            } else {
-                // This is a leaf field, add it to columns
-                const columnPath = [...relationships, name].join('.');
-                if (!columns.includes(columnPath)) {
-                    columns.push(columnPath);
-                }
+        // Since we're now storing full paths directly in the columnMap,
+        // we can just extract the keys
+        for (let [columnPath, data] of columnMap) {
+            if (data === null && !columns.includes(columnPath)) {
+                columns.push(columnPath);
             }
         }
     }
@@ -1209,6 +1321,8 @@ export default class SoqlRunner extends LightningElement {
     handleClear() {
         // Clear query and reset state
         this.query = '';
+        this.queryLimit = '';
+        this.finalQuery = '';
         this.results = [];
         this.columns = [];
         this.error = '';
@@ -1413,7 +1527,7 @@ export default class SoqlRunner extends LightningElement {
         this.showToast('Info', 'Starting large dataset export. This may take a few moments...', 'info');
 
         // Get first batch to determine total count
-        runSOQLForExport({ soql: this.query, batchNumber: 0 })
+        runSOQLForExport({ soql: this.finalQuery, batchNumber: 0 })
             .then(firstBatch => {
                 this.exportTotal = firstBatch.totalCount;
                 return this.processBatchExport(firstBatch, 0, [], format);
@@ -1449,7 +1563,7 @@ export default class SoqlRunner extends LightningElement {
         
         if (batchData.hasMore) {
             // Process next batch
-            return runSOQLForExport({ soql: this.query, batchNumber: batchNumber + 1 })
+            return runSOQLForExport({ soql: this.finalQuery, batchNumber: batchNumber + 1 })
                 .then(nextBatch => {
                     return this.processBatchExport(nextBatch, batchNumber + 1, updatedData, format);
                 });
@@ -1461,33 +1575,15 @@ export default class SoqlRunner extends LightningElement {
 
     // Convert raw data to export format
     convertExportData(rawData) {
-        return rawData.map(row => {
-            const exportRow = {};
-            
-            this.columns.forEach(col => {
-                const fieldName = col.fieldName;
-                let value = row[fieldName];
-                
-                if (value === null || value === undefined) {
-                    value = '';
-                } else if (typeof value === 'object') {
-                    value = JSON.stringify(value);
-                } else if (typeof value === 'boolean') {
-                    value = value.toString();
-                } else if (typeof value === 'number') {
-                    value = value.toString();
-                }
-                
-                const exportColumnName = col.label || fieldName;
-                exportRow[exportColumnName] = value;
-            });
-            
-            return exportRow;
-        });
+        // For large datasets, use the same conversion logic as the UI
+        // to ensure we get all columns including flattened relationship fields
+        const { records: convertedRecords } = this.convertQueryResponse(rawData);
+        return convertedRecords;
     }
 
     // Export large CSV dataset
     exportLargeCSV(allData) {
+        // allData is already processed through convertExportData during batch collection
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(allData);
         
@@ -1507,22 +1603,25 @@ export default class SoqlRunner extends LightningElement {
     exportLargeExcel(allData) {
         const wb = XLSX.utils.book_new();
         
+        // allData is already processed through convertExportData during batch collection
+        const processedData = allData;
+        
         // Split large datasets into multiple sheets if needed (Excel has row limits)
         const maxRowsPerSheet = 1000000; // Conservative limit
-        const totalSheets = Math.ceil(allData.length / maxRowsPerSheet);
+        const totalSheets = Math.ceil(processedData.length / maxRowsPerSheet);
 
         if (totalSheets === 1) {
             // Single sheet export
-            const ws = XLSX.utils.json_to_sheet(allData);
+            const ws = XLSX.utils.json_to_sheet(processedData);
             this.applyHeaderStyling(ws);
-            this.autoSizeColumns(ws, allData);
+            this.autoSizeColumns(ws, processedData);
             XLSX.utils.book_append_sheet(wb, ws, 'SOQL Results');
         } else {
             // Multi-sheet export for very large datasets
             for (let sheetIndex = 0; sheetIndex < totalSheets; sheetIndex++) {
                 const startIndex = sheetIndex * maxRowsPerSheet;
-                const endIndex = Math.min(startIndex + maxRowsPerSheet, allData.length);
-                const sheetData = allData.slice(startIndex, endIndex);
+                const endIndex = Math.min(startIndex + maxRowsPerSheet, processedData.length);
+                const sheetData = processedData.slice(startIndex, endIndex);
                 
                 const ws = XLSX.utils.json_to_sheet(sheetData);
                 this.applyHeaderStyling(ws);
@@ -1534,7 +1633,7 @@ export default class SoqlRunner extends LightningElement {
         }
 
         // Add metadata sheet
-        this.addLargeExportMetadata(wb, allData.length, totalSheets);
+        this.addLargeExportMetadata(wb, processedData.length, totalSheets);
         
         const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
         const filename = `soql_large_export_${timestamp}.xlsx`;
@@ -1542,7 +1641,7 @@ export default class SoqlRunner extends LightningElement {
         XLSX.writeFile(wb, filename);
         
         this.showToast('Success', 
-            `Large dataset exported successfully as ${filename}. ${allData.length} records across ${totalSheets} sheet(s).`, 
+            `Large dataset exported successfully as ${filename}. ${processedData.length} records across ${totalSheets} sheet(s).`, 
             'success');
     }
 
