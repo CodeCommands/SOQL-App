@@ -3,6 +3,10 @@ import { loadScript } from 'lightning/platformResourceLoader';
 import { ShowToastEvent } from 'lightning/platformShowToastEvent';
 import SHEETJS from '@salesforce/resourceUrl/sheetjs';
 import runSOQL from '@salesforce/apex/CodeBuddhaSOQLRunner.runSOQL';
+import runSOQLAll from '@salesforce/apex/CodeBuddhaSOQLRunner.runSOQLAll';
+import runSOQLPaginated from '@salesforce/apex/CodeBuddhaSOQLRunner.runSOQLPaginated';
+import runSOQLForExport from '@salesforce/apex/CodeBuddhaSOQLRunner.runSOQLForExport';
+import runSOQLWithCursor from '@salesforce/apex/CodeBuddhaSOQLRunner.runSOQLWithCursor';
 import getSObjects from '@salesforce/apex/CodeBuddhaSOQLMeta.getSObjects';
 import getSObjectFields from '@salesforce/apex/CodeBuddhaSOQLMeta.getSObjectFields';
 
@@ -43,6 +47,21 @@ export default class SoqlRunner extends LightningElement {
     @track error = '';
     @track columns = [];
     @track isLoading = false;
+    
+    // Pagination
+    @track currentPage = 1;
+    @track pageSize = 2000;
+    @track totalRecords = 0;
+    @track totalPages = 0;
+    @track hasNextPage = false;
+    @track hasPreviousPage = false;
+    @track isQueryAll = false;
+    @track showPagination = false;
+    
+    // Export handling
+    @track isExporting = false;
+    @track exportProgress = 0;
+    @track exportTotal = 0;
     
     // Child relationship data viewing
     @track childRelationshipData = [];
@@ -490,10 +509,20 @@ export default class SoqlRunner extends LightningElement {
     }
 
     handleRun() {
+        this.executeQuery(false);
+    }
+
+    handleRunAll() {
+        this.executeQuery(true);
+    }
+
+    executeQuery(useAllRows = false) {
         this.error = '';
         this.results = [];
         this.columns = [];
         this.isLoading = true;
+        this.isQueryAll = useAllRows;
+        this.currentPage = 1;
         this.closeChildRelationship(); // Close any open child relationship
         
         if (!this.query) {
@@ -501,27 +530,18 @@ export default class SoqlRunner extends LightningElement {
             this.isLoading = false;
             return;
         }
+
+        const queryMethod = useAllRows ? runSOQLAll : runSOQL;
         
-        runSOQL({ soql: this.query })
+        queryMethod({ soql: this.query })
             .then(data => {
-                if (data && data.length > 0) {
-                    this.rawQueryResults = JSON.parse(JSON.stringify(data));
-                    
-                    const { records, columns } = this.convertQueryResponse(data);
-                    
-                    this.columns = columns.map(field => {
-                        return {
-                            label: field.replace(/\./g, ' '),
-                            fieldName: field,
-                            type: 'text'
-                        };
-                    });
-                    
-                    this.results = records;
+                this.processQueryResults(data);
+                
+                // For regular queries, get pagination info
+                if (!useAllRows && data && data.length > 0) {
+                    this.setupPagination();
                 } else {
-                    this.results = [];
-                    this.columns = [];
-                    this.rawQueryResults = [];
+                    this.showPagination = false;
                 }
                 
                 this.isLoading = false;
@@ -530,7 +550,99 @@ export default class SoqlRunner extends LightningElement {
                 this.error = err.body && err.body.message ? err.body.message : err.message;
                 this.isLoading = false;
                 this.rawQueryResults = [];
+                this.showPagination = false;
             });
+    }
+
+    // Setup pagination for regular queries
+    setupPagination() {
+        if (this.results.length >= this.pageSize) {
+            runSOQLPaginated({ 
+                soql: this.query, 
+                pageSize: this.pageSize, 
+                offset: 0 
+            })
+            .then(paginationData => {
+                this.totalRecords = paginationData.totalCount;
+                this.totalPages = Math.ceil(this.totalRecords / this.pageSize);
+                this.hasNextPage = paginationData.hasMore;
+                this.hasPreviousPage = false;
+                this.showPagination = this.totalRecords > this.pageSize;
+            })
+            .catch(err => {
+                console.error('Pagination setup error:', err);
+                this.showPagination = false;
+            });
+        } else {
+            this.showPagination = false;
+        }
+    }
+
+    // Navigate to specific page
+    goToPage(pageNumber) {
+        if (pageNumber < 1 || pageNumber > this.totalPages || pageNumber === this.currentPage) {
+            return;
+        }
+
+        this.isLoading = true;
+        this.currentPage = pageNumber;
+        const offset = (pageNumber - 1) * this.pageSize;
+
+        runSOQLPaginated({ 
+            soql: this.query, 
+            pageSize: this.pageSize, 
+            offset: offset 
+        })
+        .then(paginationData => {
+            this.processQueryResults(paginationData.records);
+            this.hasNextPage = paginationData.hasMore;
+            this.hasPreviousPage = pageNumber > 1;
+            this.isLoading = false;
+        })
+        .catch(err => {
+            this.error = err.body && err.body.message ? err.body.message : err.message;
+            this.isLoading = false;
+        });
+    }
+
+    // Pagination navigation methods
+    handleFirstPage() {
+        this.goToPage(1);
+    }
+
+    handlePreviousPage() {
+        this.goToPage(this.currentPage - 1);
+    }
+
+    handleNextPage() {
+        this.goToPage(this.currentPage + 1);
+    }
+
+    handleLastPage() {
+        this.goToPage(this.totalPages);
+    }
+
+    // Process query results (common logic)
+    processQueryResults(data) {
+        if (data && data.length > 0) {
+            this.rawQueryResults = JSON.parse(JSON.stringify(data));
+            
+            const { records, columns } = this.convertQueryResponse(data);
+            
+            this.columns = columns.map(field => {
+                return {
+                    label: field.replace(/\./g, ' '),
+                    fieldName: field,
+                    type: 'text'
+                };
+            });
+            
+            this.results = records;
+        } else {
+            this.results = [];
+            this.columns = [];
+            this.rawQueryResults = [];
+        }
     }
 
     // Handle cell click for subquery expansion
@@ -626,11 +738,6 @@ export default class SoqlRunner extends LightningElement {
         this.childRelationshipData = [];
         this.childDataTableColumns = [];
         this.childRelationshipTitle = '';
-    }
-
-    handleRunAll() {
-        // For demo, same as handleRun. In production, use ALL ROWS if needed.
-        this.handleRun();
     }
 
     // Helper method to collect columns dynamically from response data (like lwc-soql-builder)
@@ -1110,6 +1217,20 @@ export default class SoqlRunner extends LightningElement {
         this.childRelationshipResults = new Map();
         this.expandedChildRelationships = new Set();
         
+        // Reset pagination
+        this.currentPage = 1;
+        this.totalRecords = 0;
+        this.totalPages = 0;
+        this.hasNextPage = false;
+        this.hasPreviousPage = false;
+        this.showPagination = false;
+        this.isQueryAll = false;
+        
+        // Reset export state
+        this.isExporting = false;
+        this.exportProgress = 0;
+        this.exportTotal = 0;
+        
         // Reset left pane to original state
         this.selectedSObject = null;
         this.sobjectSearch = '';
@@ -1149,19 +1270,338 @@ export default class SoqlRunner extends LightningElement {
             return;
         }
 
+        // Check if this is a large dataset that needs batch export
+        if (this.isQueryAll && this.results.length >= 2000) {
+            this.exportLargeDataset('csv');
+        } else {
+            this.exportCurrentData('csv');
+        }
+    }
+
+    handleExportExcel() {
+        if (!this.results.length) {
+            this.showToast('Warning', 'No data to export', 'warning');
+            return;
+        }
+
+        if (!this.sheetJSInitialized) {
+            this.showToast('Error', 'Export library not loaded. Please refresh and try again.', 'error');
+            return;
+        }
+
+        // Check if this is a large dataset that needs batch export
+        if (this.isQueryAll && this.results.length >= 2000) {
+            this.exportLargeDataset('excel');
+        } else {
+            this.exportCurrentData('excel');
+        }
+    }
+
+    // Export current visible data (for regular queries or small datasets)
+    exportCurrentData(format) {
         try {
-            // For CSV, we'll create a zip file with multiple CSV files if there are child relationships
-            const hasChildRelationships = this.checkForChildRelationships();
-            
-            if (hasChildRelationships) {
-                this.exportMultipleCSVFiles();
-            } else {
+            if (format === 'csv') {
                 this.exportSingleCSV();
+            } else {
+                this.exportCurrentExcel();
             }
-            
         } catch (error) {
             this.showToast('Error', 'Failed to export data: ' + error.message, 'error');
         }
+    }
+
+    // Export current Excel data (existing method renamed for clarity)
+    exportCurrentExcel() {
+        // Create workbook
+        const wb = XLSX.utils.book_new();
+        
+        // 1. First, prepare child relationship sheets to know which ones exist
+        const childSheets = this.prepareChildRelationshipSheets();
+        
+        // 2. Main Results Sheet with hyperlinks
+        const mainExportData = this.prepareMainExportDataWithLinks(childSheets);
+        const mainWS = XLSX.utils.json_to_sheet(mainExportData);
+        
+        // Enhanced formatting for main sheet
+        const mainColumnWidths = mainExportData.length > 0 ? 
+            Object.keys(mainExportData[0]).map(key => {
+                const maxLength = Math.max(
+                    key.length,
+                    ...mainExportData.slice(0, 100).map(row => 
+                        String(row[key] || '').length
+                    )
+                );
+                return { wch: Math.min(Math.max(maxLength, 12), 50) };
+            }) : [];
+        mainWS['!cols'] = mainColumnWidths;
+        
+        // Add header styling and hyperlinks for main sheet
+        this.applyHeaderStyling(mainWS);
+        this.addHyperlinksToMainSheet(mainWS, mainExportData, childSheets);
+        
+        // Add main sheet to workbook
+        XLSX.utils.book_append_sheet(wb, mainWS, 'Main Results');
+        
+        // 3. Child Relationship Sheets
+        childSheets.forEach(({ sheetName, data }) => {
+            if (data && data.length > 0) {
+                const childWS = XLSX.utils.json_to_sheet(data);
+                
+                // Auto-size columns for child sheets
+                const childColumnWidths = Object.keys(data[0]).map(key => {
+                    const maxLength = Math.max(
+                        key.length,
+                        ...data.slice(0, 100).map(row => 
+                            String(row[key] || '').length
+                        )
+                    );
+                    return { wch: Math.min(Math.max(maxLength, 12), 50) };
+                });
+                childWS['!cols'] = childColumnWidths;
+                
+                // Apply styling
+                this.applyHeaderStyling(childWS);
+                
+                // Add visual separators between different parent records
+                this.addParentGroupSeparators(childWS, data);
+                
+                // Add back-to-main link in child sheet
+                this.addBackToMainLink(childWS);
+                
+                // Add child sheet with truncated name (Excel sheet name limit is 31 chars)
+                const truncatedSheetName = sheetName.length > 31 ? 
+                    sheetName.substring(0, 28) + '...' : sheetName;
+                XLSX.utils.book_append_sheet(wb, childWS, truncatedSheetName);
+            }
+        });
+        
+        // 4. Navigation Guide Sheet
+        this.addNavigationGuideSheet(wb, childSheets);
+        
+        // 5. Metadata Sheet
+        const metaData = [
+            { Property: 'Export Date', Value: new Date().toLocaleString() },
+            { Property: 'SOQL Query', Value: this.query },
+            { Property: 'Total Main Records', Value: this.results.length },
+            { Property: 'Selected Object', Value: this.selectedSObject || 'N/A' },
+            { Property: 'Child Relationships Found', Value: childSheets.length },
+            { Property: 'Sheets Created', Value: wb.SheetNames.length },
+            { Property: 'Navigation', Value: 'Click on child relationship counts in Main Results to jump to child data sheets' }
+        ];
+        const metaWS = XLSX.utils.json_to_sheet(metaData);
+        XLSX.utils.book_append_sheet(wb, metaWS, 'Export Info');
+        
+        // Generate filename with timestamp
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+        const filename = `soql_export_${timestamp}.xlsx`;
+        
+        // Export Excel file
+        XLSX.writeFile(wb, filename);
+        
+        const totalRecords = childSheets.reduce((sum, sheet) => sum + (sheet.data?.length || 0), this.results.length);
+        this.showToast('Success', 
+            `Data exported successfully as ${filename}. ${wb.SheetNames.length} sheets created with ${totalRecords} total records. Click on child relationship counts to navigate between sheets.`, 
+            'success');
+    }
+
+    // Export large datasets using batch processing
+    exportLargeDataset(format) {
+        this.isExporting = true;
+        this.exportProgress = 0;
+        this.exportTotal = 0;
+
+        this.showToast('Info', 'Starting large dataset export. This may take a few moments...', 'info');
+
+        // Get first batch to determine total count
+        runSOQLForExport({ soql: this.query, batchNumber: 0 })
+            .then(firstBatch => {
+                this.exportTotal = firstBatch.totalCount;
+                return this.processBatchExport(firstBatch, 0, [], format);
+            })
+            .then(allData => {
+                // Export all collected data
+                if (format === 'csv') {
+                    this.exportLargeCSV(allData);
+                } else {
+                    this.exportLargeExcel(allData);
+                }
+
+                this.isExporting = false;
+                this.exportProgress = 0;
+                this.exportTotal = 0;
+            })
+            .catch(error => {
+                this.isExporting = false;
+                this.exportProgress = 0;
+                this.exportTotal = 0;
+                this.showToast('Error', 'Failed to export large dataset: ' + error.message, 'error');
+            });
+    }
+
+    // Process batches recursively to avoid async/await in loops
+    processBatchExport(batchData, batchNumber, allData, format) {
+        // Convert batch data to export format
+        const convertedBatch = this.convertExportData(batchData.records);
+        const updatedData = allData.concat(convertedBatch);
+
+        // Update progress
+        this.exportProgress = updatedData.length;
+        
+        if (batchData.hasMore) {
+            // Process next batch
+            return runSOQLForExport({ soql: this.query, batchNumber: batchNumber + 1 })
+                .then(nextBatch => {
+                    return this.processBatchExport(nextBatch, batchNumber + 1, updatedData, format);
+                });
+        }
+        
+        // Return final data
+        return Promise.resolve(updatedData);
+    }
+
+    // Convert raw data to export format
+    convertExportData(rawData) {
+        return rawData.map(row => {
+            const exportRow = {};
+            
+            this.columns.forEach(col => {
+                const fieldName = col.fieldName;
+                let value = row[fieldName];
+                
+                if (value === null || value === undefined) {
+                    value = '';
+                } else if (typeof value === 'object') {
+                    value = JSON.stringify(value);
+                } else if (typeof value === 'boolean') {
+                    value = value.toString();
+                } else if (typeof value === 'number') {
+                    value = value.toString();
+                }
+                
+                const exportColumnName = col.label || fieldName;
+                exportRow[exportColumnName] = value;
+            });
+            
+            return exportRow;
+        });
+    }
+
+    // Export large CSV dataset
+    exportLargeCSV(allData) {
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(allData);
+        
+        XLSX.utils.book_append_sheet(wb, ws, 'SOQL Results');
+        
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+        const filename = `soql_large_export_${timestamp}.csv`;
+        
+        XLSX.writeFile(wb, filename);
+        
+        this.showToast('Success', 
+            `Large dataset exported successfully as ${filename}. ${allData.length} records exported.`, 
+            'success');
+    }
+
+    // Export large Excel dataset with enhanced features
+    exportLargeExcel(allData) {
+        const wb = XLSX.utils.book_new();
+        
+        // Split large datasets into multiple sheets if needed (Excel has row limits)
+        const maxRowsPerSheet = 1000000; // Conservative limit
+        const totalSheets = Math.ceil(allData.length / maxRowsPerSheet);
+
+        if (totalSheets === 1) {
+            // Single sheet export
+            const ws = XLSX.utils.json_to_sheet(allData);
+            this.applyHeaderStyling(ws);
+            this.autoSizeColumns(ws, allData);
+            XLSX.utils.book_append_sheet(wb, ws, 'SOQL Results');
+        } else {
+            // Multi-sheet export for very large datasets
+            for (let sheetIndex = 0; sheetIndex < totalSheets; sheetIndex++) {
+                const startIndex = sheetIndex * maxRowsPerSheet;
+                const endIndex = Math.min(startIndex + maxRowsPerSheet, allData.length);
+                const sheetData = allData.slice(startIndex, endIndex);
+                
+                const ws = XLSX.utils.json_to_sheet(sheetData);
+                this.applyHeaderStyling(ws);
+                this.autoSizeColumns(ws, sheetData);
+                
+                const sheetName = `Results ${sheetIndex + 1}`;
+                XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            }
+        }
+
+        // Add metadata sheet
+        this.addLargeExportMetadata(wb, allData.length, totalSheets);
+        
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+        const filename = `soql_large_export_${timestamp}.xlsx`;
+        
+        XLSX.writeFile(wb, filename);
+        
+        this.showToast('Success', 
+            `Large dataset exported successfully as ${filename}. ${allData.length} records across ${totalSheets} sheet(s).`, 
+            'success');
+    }
+
+    // Add metadata for large exports
+    addLargeExportMetadata(workbook, totalRecords, totalSheets) {
+        const metaData = [
+            { Property: 'Export Date', Value: new Date().toLocaleString() },
+            { Property: 'Export Type', Value: 'Large Dataset Export' },
+            { Property: 'SOQL Query', Value: this.query },
+            { Property: 'Total Records Exported', Value: totalRecords },
+            { Property: 'Selected Object', Value: this.selectedSObject || 'N/A' },
+            { Property: 'Sheets Created', Value: totalSheets },
+            { Property: 'Export Method', Value: 'Batch Processing with Apex Cursors' },
+            { Property: 'Performance Note', Value: 'Data exported using optimized batch processing for large datasets' }
+        ];
+        
+        const metaWS = XLSX.utils.json_to_sheet(metaData);
+        this.applyHeaderStyling(metaWS);
+        XLSX.utils.book_append_sheet(workbook, metaWS, 'Export Info');
+    }
+
+    // Auto-size columns based on content
+    autoSizeColumns(worksheet, data) {
+        if (!data || data.length === 0) return;
+        
+        const columnWidths = Object.keys(data[0]).map(key => {
+            const maxLength = Math.max(
+                key.length,
+                ...data.slice(0, 100).map(row => 
+                    String(row[key] || '').length
+                )
+            );
+            return { wch: Math.min(Math.max(maxLength, 12), 50) };
+        });
+        worksheet['!cols'] = columnWidths;
+    }
+
+    // Computed properties for pagination UI
+    get paginationInfo() {
+        if (!this.showPagination) return '';
+        
+        const startRecord = (this.currentPage - 1) * this.pageSize + 1;
+        const endRecord = Math.min(this.currentPage * this.pageSize, this.totalRecords);
+        
+        return `Showing ${startRecord}-${endRecord} of ${this.totalRecords} records`;
+    }
+
+    get exportButtonLabel() {
+        if (this.isQueryAll && this.results.length >= 2000) {
+            return `Export All ${this.results.length}+ Records`;
+        }
+        return `Export ${this.results.length} Records`;
+    }
+
+    get exportProgressInfo() {
+        if (!this.isExporting) return '';
+        
+        const percentage = this.exportTotal > 0 ? Math.round((this.exportProgress / this.exportTotal) * 100) : 0;
+        return `Exporting... ${this.exportProgress} of ${this.exportTotal} records (${percentage}%)`;
     }
 
     // Check if there are child relationships in the data
@@ -1207,114 +1647,6 @@ export default class SoqlRunner extends LightningElement {
         this.showToast('Info', 
             'Child relationship data detected. For complete data export with child relationships in separate sheets, use Excel export.', 
             'info');
-    }
-
-    handleExportExcel() {
-        if (!this.results.length) {
-            this.showToast('Warning', 'No data to export', 'warning');
-            return;
-        }
-
-        if (!this.sheetJSInitialized) {
-            this.showToast('Error', 'Export library not loaded. Please refresh and try again.', 'error');
-            return;
-        }
-
-        try {
-            // Create workbook
-            const wb = XLSX.utils.book_new();
-            
-            // 1. First, prepare child relationship sheets to know which ones exist
-            const childSheets = this.prepareChildRelationshipSheets();
-            
-            // 2. Main Results Sheet with hyperlinks
-            const mainExportData = this.prepareMainExportDataWithLinks(childSheets);
-            const mainWS = XLSX.utils.json_to_sheet(mainExportData);
-            
-            // Enhanced formatting for main sheet
-            const mainColumnWidths = mainExportData.length > 0 ? 
-                Object.keys(mainExportData[0]).map(key => {
-                    const maxLength = Math.max(
-                        key.length,
-                        ...mainExportData.slice(0, 100).map(row => 
-                            String(row[key] || '').length
-                        )
-                    );
-                    return { wch: Math.min(Math.max(maxLength, 12), 50) };
-                }) : [];
-            mainWS['!cols'] = mainColumnWidths;
-            
-            // Add header styling and hyperlinks for main sheet
-            this.applyHeaderStyling(mainWS);
-            this.addHyperlinksToMainSheet(mainWS, mainExportData, childSheets);
-            
-            // Add main sheet to workbook
-            XLSX.utils.book_append_sheet(wb, mainWS, 'Main Results');
-            
-            // 3. Child Relationship Sheets
-            childSheets.forEach(({ sheetName, data }) => {
-                if (data && data.length > 0) {
-                    const childWS = XLSX.utils.json_to_sheet(data);
-                    
-                    // Auto-size columns for child sheets
-                    const childColumnWidths = Object.keys(data[0]).map(key => {
-                        const maxLength = Math.max(
-                            key.length,
-                            ...data.slice(0, 100).map(row => 
-                                String(row[key] || '').length
-                            )
-                        );
-                        return { wch: Math.min(Math.max(maxLength, 12), 50) };
-                    });
-                    childWS['!cols'] = childColumnWidths;
-                    
-                    // Apply styling
-                    this.applyHeaderStyling(childWS);
-                    
-                    // Add visual separators between different parent records
-                    this.addParentGroupSeparators(childWS, data);
-                    
-                    // Add back-to-main link in child sheet
-                    this.addBackToMainLink(childWS);
-                    
-                    // Add child sheet with truncated name (Excel sheet name limit is 31 chars)
-                    const truncatedSheetName = sheetName.length > 31 ? 
-                        sheetName.substring(0, 28) + '...' : sheetName;
-                    XLSX.utils.book_append_sheet(wb, childWS, truncatedSheetName);
-                }
-            });
-            
-            // 4. Navigation Guide Sheet
-            this.addNavigationGuideSheet(wb, childSheets);
-            
-            // 5. Metadata Sheet
-            const metaData = [
-                { Property: 'Export Date', Value: new Date().toLocaleString() },
-                { Property: 'SOQL Query', Value: this.query },
-                { Property: 'Total Main Records', Value: this.results.length },
-                { Property: 'Selected Object', Value: this.selectedSObject || 'N/A' },
-                { Property: 'Child Relationships Found', Value: childSheets.length },
-                { Property: 'Sheets Created', Value: wb.SheetNames.length },
-                { Property: 'Navigation', Value: 'Click on child relationship counts in Main Results to jump to child data sheets' }
-            ];
-            const metaWS = XLSX.utils.json_to_sheet(metaData);
-            XLSX.utils.book_append_sheet(wb, metaWS, 'Export Info');
-            
-            // Generate filename with timestamp
-            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-            const filename = `soql_export_${timestamp}.xlsx`;
-            
-            // Export Excel file
-            XLSX.writeFile(wb, filename);
-            
-            const totalRecords = childSheets.reduce((sum, sheet) => sum + (sheet.data?.length || 0), this.results.length);
-            this.showToast('Success', 
-                `Data exported successfully as ${filename}. ${wb.SheetNames.length} sheets created with ${totalRecords} total records. Click on child relationship counts to navigate between sheets.`, 
-                'success');
-            
-        } catch (error) {
-            this.showToast('Error', 'Failed to export data: ' + error.message, 'error');
-        }
     }
 
     // Prepare main export data with enhanced formatting for hyperlinks
