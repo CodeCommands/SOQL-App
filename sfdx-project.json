@@ -4,9 +4,9 @@
       "path": "force-app",
       "default": true,
       "package": "SOQL Builder Pro",
-      "versionName": "Spring 2025 Enhanced",
-      "versionNumber": "1.1.0.NEXT",
-      "versionDescription": "Enhanced SOQL Builder with Query All, large dataset support, subqueries, relationship fields, and unified export capabilities",
+      "versionName": "Winter 2025 Enhanced",
+      "versionNumber": "1.2.0.NEXT",
+      "versionDescription": "Enhanced SOQL Builder with Format SOQL removal, improved styling, complete reference field visibility, enhanced Clear functionality, and consistent UI across all tabs",
       "definitionFile": "config/project-scratch-def.json"
     }
   ],
