@@ -52,8 +52,8 @@ echo 🎉 Deployment Complete!
 echo.
 echo 📋 Next Steps:
 echo 1. Open your Salesforce org
-echo 2. Go to App Launcher and search for "SOQL"
-echo 3. Open SOQL Builder Pro
+echo 2. Go to App Launcher and search for "SOQL Runner"
+echo 3. Open SOQL Runner app
 echo 4. Test the functionality
 
 echo.

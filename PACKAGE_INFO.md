@@ -1,6 +1,11 @@
 # SOQL Builder Pro - Package Information
 
-## 📦 Current Package Details
+## � Naming Convention
+- **Package Name**: SOQL Builder Pro (used for installation and package management)
+- **App Name in Salesforce**: SOQL Runner (what users see in App Launcher)
+- **Permission Set**: SOQL_Runner_User (assigned to users for access)
+
+## �📦 Current Package Details
 
 ### **Package Information**
 - **Name**: SOQL Builder Pro
@@ -30,7 +35,7 @@ https://login.salesforce.com/packaging/installPackage.apexp?p0=04tgL0000004vCbQA
 ### **Manual Installation**
 1. Deploy source code to your org
 2. Assign `SOQL_Runner_User` permission set
-3. Access via App Launcher
+3. Access "SOQL Runner" app via App Launcher
 
 ## 📋 Package Contents
 

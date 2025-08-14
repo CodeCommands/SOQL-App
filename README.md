@@ -9,6 +9,11 @@
 
 Transform your Salesforce data querying experience with **SOQL Builder Pro** - where complex queries become simple drag-and-drop operations.
 
+## 📝 Important Notes
+- **Package Name**: SOQL Builder Pro (what you install)
+- **App Name in Salesforce**: SOQL Runner (what you see in App Launcher)
+- **Permission Set**: SOQL_Runner_User (what users need)
+
 ## 🚀 Key Features
 
 ### **Visual Query Builder**
@@ -57,11 +62,14 @@ sf package install --package 04tgL0000004vCbQAI --target-org YOUR_ORG_ALIAS
 
 ## 🎯 Quick Start
 
-1. **Select Object**: Choose from accessible SObjects
-2. **Pick Fields**: Drag fields to your query
-3. **Add Conditions**: Build WHERE clauses (optional)
-4. **Execute**: Run your query safely
-5. **Export**: Download results to Excel/CSV
+1. **Install Package**: Use the installation URL above
+2. **Assign Permissions**: Give users the "SOQL_Runner_User" permission set
+3. **Open App**: Find "SOQL Runner" in App Launcher
+4. **Select Object**: Choose from accessible SObjects
+5. **Pick Fields**: Drag fields to your query
+6. **Add Conditions**: Build WHERE clauses (optional)
+7. **Execute**: Run your query safely
+8. **Export**: Download results to Excel/CSV
 
 ## 📊 Technical Details
 

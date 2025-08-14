@@ -36,7 +36,7 @@ sf package install --package 04tgL0000004vCbQAI --target-org YOUR_ORG_ALIAS
 
 ### **Step 2: Assign Permission Set**
 1. Navigate to **Setup** → **Permission Sets**
-2. Find and click **"CodeBuddha__SOQL_Runner_User"**
+2. Find and click **"SOQL_Runner_User"** permission set
 3. Click **"Manage Assignments"**
 4. Click **"Add Assignments"**
 5. Select users who need access
@@ -50,7 +50,7 @@ sf package install --package 04tgL0000004vCbQAI --target-org YOUR_ORG_ALIAS
 
 **Method 2: Utility Bar (Optional)**
 1. App will be automatically available in utility bar
-2. Look for SOQL icon in bottom toolbar
+2. Look for SOQL Runner icon in bottom toolbar
 
 ---
 
@@ -74,7 +74,7 @@ sf package install --package 04tgL0000004vCbQAI --target-org YOUR_ORG_ALIAS
 
 ### **Permission Set Customization**
 If you need custom permissions:
-1. Clone the **"CodeBuddha__SOQL_Runner_User"** permission set
+1. Clone the **"SOQL_Runner_User"** permission set
 2. Modify as needed for your organization
 3. Assign the custom permission set instead
 
@@ -84,12 +84,12 @@ If you need custom permissions:
 
 ### **Verify Installation**
 1. Check **Setup** → **Installed Packages**
-2. Confirm "SOQL Builder Pro" is listed
+2. Confirm "SOQL Builder Pro" package is listed
 3. Verify version number
 4. Check installation status
 
 ### **Test Basic Functionality**
-1. Open SOQL Runner app
+1. Open "SOQL Runner" app from App Launcher
 2. Select "Account" object
 3. Add "Name" field
 4. Click "Execute"
@@ -110,14 +110,14 @@ No additional security configuration needed!
 ## 👥 User Management
 
 ### **Adding New Users**
-When adding new users who need SOQL Builder Pro access:
+When adding new users who need SOQL Runner access:
 1. Create/modify user account
-2. Assign **"CodeBuddha__SOQL_Runner_User"** permission set
+2. Assign **"SOQL_Runner_User"** permission set
 3. User can immediately access the app
 
 ### **Removing User Access**
 1. Go to **Setup** → **Permission Sets**
-2. Select **"CodeBuddha__SOQL_Runner_User"**
+2. Select **"SOQL_Runner_User"** permission set
 3. Click **"Manage Assignments"**
 4. Remove user assignments as needed
 
@@ -142,7 +142,7 @@ For large user groups:
 ### **"Insufficient Privileges" Error**
 **Cause**: User lacks necessary permissions
 **Solution**:
-1. Verify **"CodeBuddha__SOQL_Runner_User"** permission set assignment
+1. Verify **"SOQL_Runner_User"** permission set assignment
 2. Check user profile has Lightning Components access
 3. Ensure Lightning Experience is enabled
 
@@ -229,9 +229,9 @@ Before major updates:
 - [ ] Reviewed user requirements
 
 **Installation**
-- [ ] Package successfully installed
-- [ ] Permission sets assigned to users
-- [ ] App accessible from App Launcher
+- [ ] SOQL Builder Pro package successfully installed
+- [ ] SOQL_Runner_User permission sets assigned to users
+- [ ] SOQL Runner app accessible from App Launcher
 - [ ] Basic functionality tested
 
 **Post-Installation**
