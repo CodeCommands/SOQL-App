@@ -315,7 +315,7 @@ export default class SoqlRunner extends LightningElement {
             getSObjectFields({ sobjectApiName: field.relationshipSObjectName })
                 .then(data => {
                     const relationshipPath = field.relationshipName || fieldName.replace('Id', ''); // Fallback if relationshipName not set
-                    const referenceFields = data.fields.slice(0, 10).map(refField => ({
+                    const referenceFields = data.fields.map(refField => ({
                         ...refField,
                         details: `${refField.type.toUpperCase()} / ${refField.label}`,
                         isActive: this.selectedFields.has(`${relationshipPath}.${refField.name}`)
