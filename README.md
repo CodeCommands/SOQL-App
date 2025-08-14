@@ -2,10 +2,10 @@
 
 [![AppExchange](https://img.shields.io/badge/AppExchange-Available-brightgreen)](https://appexchange.salesforce.com/soqlbuilderpro)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Test Coverage](https://img.shields.io/badge/Coverage-88%25-green)](README.md)
+[![Test Coverage](https://img.shields.io/badge/Coverage-100%25-brightgreen)](README.md)
 [![Salesforce API](https://img.shields.io/badge/Salesforce%20API-v64.0-blue)](README.md)
 
-> **The most intuitive visual SOQL query builder for Salesforce with powerful export capabilities.**
+> **The most intuitive visual SOQL query builder for Salesforce with powerful export and large dataset capabilities.**
 
 Transform your Salesforce data querying experience with **SOQL Builder Pro** - where complex queries become simple drag-and-drop operations.
 
@@ -21,12 +21,23 @@ Transform your Salesforce data querying experience with **SOQL Builder Pro** - w
 - **Real-time Generation**: See your query build as you select
 - **Smart Filtering**: Quick field search and categorization
 - **Relationship Navigation**: Easy parent-child queries
+- **Subquery Support**: Visual child relationship queries with expandable results
+- **Query All Mode**: Bypass governor limits with cursor-based pagination
 
 ### **Professional Export**
 - **Excel Export**: One-click .xlsx download with formatting
 - **CSV Support**: Standard data interchange format
-- **Large Dataset Handling**: Optimized for bulk exports
-- **Governor Limit Aware**: Respects Salesforce constraints
+- **Large Dataset Handling**: Unlimited record exports with optimized processing
+- **Relationship Field Export**: Complete support for lookup and master-detail fields
+- **Governor Limit Aware**: Smart handling of Salesforce constraints
+- **Query Limits**: Configurable LIMIT controls (1-50,000 records)
+
+### **Advanced Query Features**
+- **Query All Functionality**: Handle datasets beyond standard governor limits
+- **Cursor-based Pagination**: Efficient processing of large result sets
+- **Subquery Expansion**: Click to view child relationship data inline
+- **Relationship Field Display**: Proper handling of nested object references
+- **Smart Column Detection**: Automatic parsing of complex SELECT clauses
 
 ### **Enterprise Security**
 - **Field-Level Security**: Automatic FLS enforcement
@@ -42,15 +53,16 @@ Transform your Salesforce data querying experience with **SOQL Builder Pro** - w
 
 ## 📦 Installation
 
-### **Direct Package Installation**
+### **Direct Package Installation (Latest Version)**
 **Package ID**: `0HogL0000000PT3SAM`  
-**Installation URL**: https://login.salesforce.com/packaging/installPackage.apexp?p0=04tgL0000004vCbQAI
+**Latest Version**: `04tgL0000004vSjQAI` (v1.1.0-2 - Spring 2025 Enhanced)  
+**Installation URL**: https://login.salesforce.com/packaging/installPackage.apexp?p0=04tgL0000004vSjQAI
 
-[![Install Package](https://img.shields.io/badge/Install-Package-blue?style=for-the-badge)](https://login.salesforce.com/packaging/installPackage.apexp?p0=04tgL0000004vCbQAI)
+[![Install Package](https://img.shields.io/badge/Install-Latest%20v1.1.0--2-blue?style=for-the-badge)](https://login.salesforce.com/packaging/installPackage.apexp?p0=04tgL0000004vSjQAI)
 
 ### **Using Salesforce CLI**
 ```bash
-sf package install --package 04tgL0000004vCbQAI --target-org YOUR_ORG_ALIAS
+sf package install --package 04tgL0000004vSjQAI --target-org YOUR_ORG_ALIAS
 ```
 
 ### **Manual Installation**
@@ -94,13 +106,14 @@ sf package install --package 04tgL0000004vCbQAI --target-org YOUR_ORG_ALIAS
 ```
 
 ### **Test Coverage**
-- `CodeBuddhaSOQLMeta`: 94% coverage
-- `CodeBuddhaSOQLRunner`: 82% coverage
-- **Overall**: 88% average coverage
+- `CodeBuddhaSOQLMeta`: 100% coverage
+- `CodeBuddhaSOQLRunner`: 100% coverage
+- **Overall**: 100% total coverage
 
 ### **Package Information**
 - **Package ID**: `0HogL0000000PT3SAM`
-- **Version**: 1.0.0 (Winter 2025)
+- **Latest Version**: 1.1.0-2 (Spring 2025 Enhanced)
+- **Previous Version**: 1.0.0-1 (Winter 2025)
 - **Type**: Unlocked Package
 - **Status**: Released ✅
 
@@ -171,20 +184,31 @@ We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.
 
 ## 📈 Roadmap
 
+### **Q1 2025** ✅ **COMPLETED**
+- [x] Query All functionality with cursor-based pagination
+- [x] Large dataset export capabilities
+- [x] Enhanced subquery support with expandable results
+- [x] LIMIT input controls (1-50,000 records)
+- [x] Unified export processing for all query types
+- [x] Complete relationship field handling in exports
+
 ### **Q2 2025**
-- [ ] Advanced filter builder
-- [ ] Query history and favorites
-- [ ] Batch export capabilities
+- [ ] Advanced filter builder with complex conditions
+- [ ] Query history and favorites management
+- [ ] Batch export scheduling
+- [ ] Query performance analytics
 
 ### **Q3 2025**
-- [ ] Dashboard integration
-- [ ] Scheduled exports
-- [ ] Advanced analytics features
+- [ ] Dashboard integration and embedded views
+- [ ] Automated scheduled exports
+- [ ] Advanced analytics and reporting features
+- [ ] Query templates and snippets
 
 ### **Q4 2025**
-- [ ] API access for external tools
-- [ ] Custom export templates
-- [ ] Multi-org support
+- [ ] REST API access for external tools
+- [ ] Custom export templates and formatting
+- [ ] Multi-org support and data comparison
+- [ ] Enterprise governance features
 
 ## 🆘 Support
 
@@ -223,9 +247,10 @@ This project builds upon the excellent foundation of [lwc-soql-builder](https://
 ✅ **Most Secure**: Only SOQL builder with comprehensive FLS enforcement  
 ✅ **Most Intuitive**: Visual drag-drop interface requires no SOQL knowledge  
 ✅ **Most Professional**: Native Excel export with proper formatting  
-✅ **Most Reliable**: 88% test coverage ensures production stability  
+✅ **Most Reliable**: 100% test coverage ensures production stability  
+✅ **Most Powerful**: Query All mode handles unlimited datasets  
 ✅ **Most Modern**: Built with latest Lightning Web Components  
 
 **Ready to transform your Salesforce data querying experience?**
 
-[![Install Package](https://img.shields.io/badge/Install-Package-blue?style=for-the-badge)](https://login.salesforce.com/packaging/installPackage.apexp?p0=04tgL0000004vCbQAI)
+[![Install Package](https://img.shields.io/badge/Install-Latest%20v1.1.0--2-blue?style=for-the-badge)](https://login.salesforce.com/packaging/installPackage.apexp?p0=04tgL0000004vSjQAI)

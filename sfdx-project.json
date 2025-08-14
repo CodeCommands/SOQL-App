@@ -4,9 +4,9 @@
       "path": "force-app",
       "default": true,
       "package": "SOQL Builder Pro",
-      "versionName": "Winter 2025",
-      "versionNumber": "1.0.0.NEXT",
-      "versionDescription": "Visual SOQL query builder with Excel export capabilities",
+      "versionName": "Spring 2025 Enhanced",
+      "versionNumber": "1.1.0.NEXT",
+      "versionDescription": "Enhanced SOQL Builder with Query All, large dataset support, subqueries, relationship fields, and unified export capabilities",
       "definitionFile": "config/project-scratch-def.json"
     }
   ],
@@ -15,6 +15,8 @@
   "sourceApiVersion": "64.0",
   "packageAliases": {
     "SOQL Builder Pro": "0HogL0000000PT3SAM",
-    "SOQL Builder Pro@1.0.0-1": "04tgL0000004vCbQAI"
+    "SOQL Builder Pro@1.0.0-1": "04tgL0000004vCbQAI",
+    "SOQL Builder Pro@1.1.0-1": "04tgL0000004vR7QAI",
+    "SOQL Builder Pro@1.1.0-2": "04tgL0000004vSjQAI"
   }
 }

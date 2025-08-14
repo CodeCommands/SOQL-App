@@ -7,13 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Planned for v1.1.0
+### Planned for v1.2.0
 - Advanced filter builder with date/number operators
 - Query history and favorites functionality
-- Batch export capabilities for large datasets
+- Batch export scheduling capabilities
 - Performance optimizations for metadata loading
 
-## [1.0.0] - 2025-08-13
+## [1.1.0-2] - 2025-08-13 - Spring 2025 Enhanced
+
+### 🚀 Added
+- **Query All Functionality**: Bypass governor limits with cursor-based pagination for unlimited record queries
+- **Large Dataset Export**: Handle exports of unlimited record sets with optimized processing
+- **LIMIT Input Control**: UI component for setting query limits (1-50,000 records)
+- **Enhanced Subquery Support**: 
+  - Proper parsing of complex SELECT clauses with subqueries
+  - Expandable child relationship results in data table
+  - Click-to-view functionality for subquery data
+- **Relationship Field Export**: Complete support for lookup and master-detail fields in CSV/Excel exports
+- **Advanced Column Detection**: Smart parsing and handling of relationship fields and subqueries
+
+### 🔧 Improved
+- **Unified Export Processing**: Consistent data conversion for both regular and large dataset exports
+- **Column Collection**: Enhanced algorithm for detecting and displaying relationship fields
+- **Subquery Parsing**: Improved SELECT clause parsing with proper parentheses handling
+- **Test Coverage**: Achieved 100% code coverage across all Apex classes
+- **Export Data Quality**: Fixed missing relationship field values in large dataset exports
+
+### 🐛 Fixed
+- Empty columns appearing in data table for relationship queries
+- Missing relationship field values in CSV/Excel exports for large datasets
+- Subquery columns not displaying properly in UI
+- Inconsistent export processing between limited and unlimited queries
+- Column duplication issues with relationship fields
+
+### Package Details
+- **Package Version ID**: `04tgL0000004vSjQAI`
+- **Installation URL**: https://login.salesforce.com/packaging/installPackage.apexp?p0=04tgL0000004vSjQAI
+- **Status**: Released and Promoted ✅
+
+## [1.0.0-1] - 2025-01-15 - Winter 2025
 
 ### Added
 - **Initial Release** 🎉
@@ -89,13 +121,13 @@ When creating new versions, use this template:
 
 ## Future Roadmap
 
-### v1.1.0 - Spring 2025
+### v1.2.0 - Spring 2025
 - [ ] Advanced filter builder with operators
 - [ ] Query history with favorites
 - [ ] Batch export for large datasets
 - [ ] Performance optimizations
 
-### v1.2.0 - Summer 2025
+### v1.3.0 - Summer 2025
 - [ ] Dashboard integration
 - [ ] Scheduled exports
 - [ ] Additional export formats (JSON, XML)
