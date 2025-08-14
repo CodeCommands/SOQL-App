@@ -152,7 +152,7 @@
                                                 <a class="slds-tree__item-label slds-truncate" title={rel.relationshipName}>
                                                     {rel.relationshipName}
                                                 </a>
-                                                <div class="slds-text-color_weak slds-text-body_small">
+                                                <div class="field-details" title={rel.childSObject}>
                                                     {rel.childSObject}
                                                 </div>
                                             </span>
@@ -173,11 +173,11 @@
                                                                   data-apiname={childField.apiName}
                                                                   data-relationship={rel.relationshipName}
                                                                   style="cursor: pointer;">
-                                                                <span class={childField.labelClass} 
+                                                                <a class={childField.labelClass} 
                                                                       title={childField.apiName}>
                                                                     {childField.label}
-                                                                </span>
-                                                                <div class="slds-text-color_weak slds-text-body_small field-details">
+                                                                </a>
+                                                                <div class="field-details" title={childField.details}>
                                                                     {childField.apiName} • {childField.type}
                                                                 </div>
                                                             </span>

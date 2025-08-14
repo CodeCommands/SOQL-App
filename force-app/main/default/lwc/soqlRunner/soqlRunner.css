@@ -68,14 +68,19 @@
 .field-item {
     border-bottom: 1px solid #e0e0e0;
     cursor: pointer;
+    background: transparent;
 }
 
 .field-item:hover {
-    background: var(--sidebar-active);
+    background: var(--sidebar-active) !important;
+}
+
+.sobject-item {
+    background: transparent;
 }
 
 .sobject-item:hover {
-    background: var(--sidebar-active);
+    background: var(--sidebar-active) !important;
     border-radius: 4px;
 }
 
@@ -83,6 +88,7 @@
     width: 100%;
     display: flex;
     flex-direction: column;
+    background: transparent !important;
 }
 
 .slds-tree__group-header {
@@ -116,6 +122,7 @@
     flex: 1;
     position: relative;
     padding: 0;
+    background: transparent !important;
 }
 
 /* Child Relationships Tree Styling */
@@ -124,10 +131,11 @@
     padding-bottom: 0.2rem;
     border-radius: 4px;
     transition: background-color 0.2s ease;
+    background: transparent !important;
 }
 
 .slds-tree__item:hover {
-    background-color: var(--sidebar-active);
+    background-color: var(--sidebar-active) !important;
 }
 
 .slds-tree__item button[aria-hidden='true'] {
@@ -166,10 +174,11 @@
     border-radius: 4px;
     transition: all 0.2s ease;
     display: block;
+    background: transparent !important;
 }
 
 .slds-tree__item-label:hover {
-    background-color: #f4f6f9;
+    background-color: #f4f6f9 !important;
     color: var(--accent-color);
 }
 
@@ -352,6 +361,95 @@
 .slds-tabs_default__content {
     max-height: 60vh !important;
     overflow-y: auto !important;
+    background: transparent !important;
+}
+
+/* Remove any default background colors from SLDS tree elements */
+.slds-tree,
+.slds-tree__group,
+.slds-tree ul,
+.slds-tree li {
+    background: transparent !important;
+}
+
+/* Ensure only individual items get hover styling, not containers */
+.slds-tree__item > .slds-tree__item:not(:hover) {
+    background: transparent !important;
+}
+
+/* Specific fix for child relationship expanded sections */
+.slds-tree ul[role="group"] {
+    background: transparent !important;
+}
+
+.slds-tree li[aria-level="2"] {
+    background: transparent !important;
+}
+
+.slds-tree li[aria-selected="true"] {
+    background: transparent !important;
+}
+
+.slds-tree li[aria-selected="false"] {
+    background: transparent !important;
+}
+
+/* Only apply purple background to individual tree items on hover, not selected state */
+.slds-tree__item:hover:not(.slds-tree__item .slds-tree__item) {
+    background-color: var(--sidebar-active) !important;
+}
+
+/* Remove any SLDS default selected styling */
+.slds-tree__item[aria-selected="true"] {
+    background: transparent !important;
+}
+
+/* Child field specific styling - no background by default */
+.slds-tree li[aria-level="2"] .slds-tree__item {
+    background: transparent !important;
+}
+
+/* Only show purple background on direct hover of child field items */
+.slds-tree li[aria-level="2"] .slds-tree__item:hover {
+    background-color: var(--sidebar-active) !important;
+}
+
+/* Ensure Child Relationships tab matches Fields tab styling */
+.slds-tree__item .slds-has-flexi-truncate a {
+    color: var(--theme-color);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.slds-tree__item .slds-has-flexi-truncate a:hover {
+    color: var(--accent-color);
+    text-decoration: none;
+}
+
+/* Make field details consistent between both tabs */
+.slds-tree .field-details {
+    font-size: 0.75rem;
+    line-height: 1;
+    color: #919191;
+    margin-top: 0.25rem;
+}
+
+/* Child relationship item styling to match fields */
+.slds-tree li[aria-level="1"] .slds-tree__item {
+    padding: 0.25rem 0;
+}
+
+.slds-tree li[aria-level="2"] .slds-tree__item {
+    padding: 0.2rem 0;
+    margin-left: 1rem;
+}
+
+/* Tree indentation consistency */
+.slds-tree ul[role="group"] {
+    margin-left: 1rem;
+    border-left: 1px solid #e0e0e0;
+    padding-left: 0.5rem;
+    background: transparent !important;
 }
 
 .slds-tabs_default__content::-webkit-scrollbar {
